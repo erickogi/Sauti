@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sauti_channel_name">Calls</string>
+    <string name="sauti_channel_description">Ongoing call session</string>
+    <string name="sauti_call_ongoing">Call in progress</string>
+    <string name="sauti_call_reconnecting">Reconnecting</string>
+    <string name="sauti_call_connecting">Connecting</string>
+</resources>

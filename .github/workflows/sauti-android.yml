@@ -1,0 +1,51 @@
+name: sauti-android
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/sauti-android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/sauti-android.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Purity gate
+        run: bash scripts/purity.sh
+
+      - name: Engine purity gate
+        run: bash scripts/check_engine_purity.sh
+
+      - name: No-comments gate
+        run: bash scripts/check_no_comments.sh
+
+      - name: Engine unit tests
+        run: ./gradlew :engine:test
+
+      - name: Assemble libraries
+        run: ./gradlew :engine:build :android:assembleRelease :rx2:assembleRelease
+
+      - name: WebRTC 16 KB alignment gate
+        run: ./gradlew :android:checkSoAlignment :android:checkSoAlignmentFails
+
+      - name: Android lint (NewApi under minSdk 21)
+        run: ./gradlew :android:lintDebug
+
+      - name: Android and rx2 unit tests
+        run: ./gradlew :android:testDebugUnitTest :rx2:testDebugUnitTest
