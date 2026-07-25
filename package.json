@@ -8,7 +8,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "purity": "pnpm -r purity"
+    "purity": "pnpm -r purity",
+    "demo": "pnpm -r build && pnpm --filter @sauti/demo dev"
   },
   "devDependencies": {
     "typescript": "^5.6.3",

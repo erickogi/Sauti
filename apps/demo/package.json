@@ -1,0 +1,33 @@
+{
+  "name": "@sauti/demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,green \"tsx server/dev-server.ts\" \"vite\"",
+    "server": "tsx server/dev-server.ts",
+    "web": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "purity": "! grep -riE 'driver|passenger|trip|rider' --include='*.ts' --include='*.tsx' -r src server"
+  },
+  "dependencies": {
+    "@sauti/core": "workspace:*",
+    "@sauti/react": "workspace:*",
+    "@sauti/react-ui": "workspace:*",
+    "@sauti/server": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "tsx": "^4.19.2",
+    "concurrently": "^9.1.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^20.16.11"
+  }
+}
