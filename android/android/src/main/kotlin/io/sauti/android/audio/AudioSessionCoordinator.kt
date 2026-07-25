@@ -21,6 +21,7 @@ enum class AudioDevice {
 
 interface AudioController {
     val currentDevice: StateFlow<AudioDevice>
+    val availableDevices: StateFlow<Set<AudioDevice>>
     val interrupted: StateFlow<Boolean>
     var onInterrupted: ((Boolean) -> Unit)?
     fun start()
@@ -36,6 +37,9 @@ class AudioSessionCoordinator(context: Context) : AudioController {
 
     private val currentDeviceState = MutableStateFlow(AudioDevice.EARPIECE)
     override val currentDevice: StateFlow<AudioDevice> get() = currentDeviceState.asStateFlow()
+
+    private val availableDevicesState = MutableStateFlow(availableDevices())
+    override val availableDevices: StateFlow<Set<AudioDevice>> get() = availableDevicesState.asStateFlow()
 
     private val interruptedState = MutableStateFlow(false)
     override val interrupted: StateFlow<Boolean> get() = interruptedState.asStateFlow()
@@ -60,6 +64,7 @@ class AudioSessionCoordinator(context: Context) : AudioController {
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         requestFocus()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) registerDeviceCallback()
+        availableDevicesState.value = availableDevices()
         selectDevice(AudioDevice.EARPIECE)
     }
 
@@ -203,6 +208,7 @@ class AudioSessionCoordinator(context: Context) : AudioController {
 
     private fun reconcileRouting() {
         val available = availableDevices()
+        availableDevicesState.value = available
         val preferred = when {
             AudioDevice.WIRED_HEADSET in available -> AudioDevice.WIRED_HEADSET
             AudioDevice.BLUETOOTH in available -> AudioDevice.BLUETOOTH

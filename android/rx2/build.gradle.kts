@@ -1,7 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    `maven-publish`
 }
+
+group = "io.sauti"
+version = "0.1.0"
 
 android {
     namespace = "io.sauti.rx2"
@@ -9,6 +13,12 @@ android {
 
     defaultConfig {
         minSdk = 21
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
     }
 
     compileOptions {
@@ -29,4 +39,15 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("release") {
+            artifactId = "rx2"
+            afterEvaluate {
+                from(components["release"])
+            }
+        }
+    }
 }

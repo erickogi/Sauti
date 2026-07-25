@@ -1,13 +1,8 @@
 package io.sauti.android.persistence
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class ResumeRecord(
     val roomId: String,
@@ -17,46 +12,46 @@ data class ResumeRecord(
     val slotGeneration: Long
 )
 
-private val Context.resumeDataStore: DataStore<Preferences> by preferencesDataStore(name = "sauti_resume")
-
 class ResumeStore(context: Context) {
-    private val store = context.applicationContext.resumeDataStore
+    private val prefs =
+        context.applicationContext.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE)
 
-    suspend fun save(record: ResumeRecord) {
-        store.edit { prefs ->
-            prefs[KEY_ROOM] = record.roomId
-            prefs[KEY_PARTICIPANT] = record.participantId
-            prefs[KEY_TOKEN] = record.token
-            prefs[KEY_URL] = record.url
-            prefs[KEY_SLOT] = record.slotGeneration
-        }
+    suspend fun save(record: ResumeRecord) = withContext(Dispatchers.IO) {
+        prefs.edit()
+            .putString(KEY_ROOM, record.roomId)
+            .putString(KEY_PARTICIPANT, record.participantId)
+            .putString(KEY_TOKEN, record.token)
+            .putString(KEY_URL, record.url)
+            .putLong(KEY_SLOT, record.slotGeneration)
+            .commit()
+        Unit
     }
 
-    suspend fun load(): ResumeRecord? {
-        val prefs = store.data.first()
-        val roomId = prefs[KEY_ROOM] ?: return null
-        val participantId = prefs[KEY_PARTICIPANT] ?: return null
-        val token = prefs[KEY_TOKEN] ?: return null
-        val url = prefs[KEY_URL] ?: return null
-        val slot = prefs[KEY_SLOT] ?: 0L
-        return ResumeRecord(
+    suspend fun load(): ResumeRecord? = withContext(Dispatchers.IO) {
+        val roomId = prefs.getString(KEY_ROOM, null) ?: return@withContext null
+        val participantId = prefs.getString(KEY_PARTICIPANT, null) ?: return@withContext null
+        val token = prefs.getString(KEY_TOKEN, null) ?: return@withContext null
+        val url = prefs.getString(KEY_URL, null) ?: return@withContext null
+        ResumeRecord(
             roomId = roomId,
             participantId = participantId,
             token = token,
             url = url,
-            slotGeneration = slot
+            slotGeneration = prefs.getLong(KEY_SLOT, 0L)
         )
     }
 
-    suspend fun clear() {
-        store.edit { it.clear() }
+    suspend fun clear() = withContext(Dispatchers.IO) {
+        prefs.edit().clear().commit()
+        Unit
     }
 
     private companion object {
-        val KEY_ROOM = stringPreferencesKey("roomId")
-        val KEY_PARTICIPANT = stringPreferencesKey("participantId")
-        val KEY_TOKEN = stringPreferencesKey("token")
-        val KEY_URL = stringPreferencesKey("url")
-        val KEY_SLOT = longPreferencesKey("slotGeneration")
+        const val STORE_NAME = "sauti_resume"
+        const val KEY_ROOM = "roomId"
+        const val KEY_PARTICIPANT = "participantId"
+        const val KEY_TOKEN = "token"
+        const val KEY_URL = "url"
+        const val KEY_SLOT = "slotGeneration"
     }
 }

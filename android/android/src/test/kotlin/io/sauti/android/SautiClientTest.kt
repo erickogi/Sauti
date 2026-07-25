@@ -56,6 +56,7 @@ private class FakeCallEngine : CallEngine {
 
 private class FakeAudioController : AudioController {
     override val currentDevice = MutableStateFlow(AudioDevice.EARPIECE)
+    override val availableDevices = MutableStateFlow(setOf(AudioDevice.EARPIECE, AudioDevice.SPEAKER))
     override val interrupted = MutableStateFlow(false)
     override var onInterrupted: ((Boolean) -> Unit)? = null
 

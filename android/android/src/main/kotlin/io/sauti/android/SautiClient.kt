@@ -55,6 +55,7 @@ class SautiClient internal constructor(
     val state: StateFlow<CallState> get() = engine.state
     val events: SharedFlow<CallEvent> get() = engine.events
     val currentDevice: StateFlow<AudioDevice> get() = audio.currentDevice
+    val availableDevices: StateFlow<Set<AudioDevice>> get() = audio.availableDevices
     val interrupted: StateFlow<Boolean> get() = audio.interrupted
 
     init {

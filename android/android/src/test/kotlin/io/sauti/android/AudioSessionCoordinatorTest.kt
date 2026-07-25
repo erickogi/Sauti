@@ -84,6 +84,14 @@ class AudioSessionCoordinatorTest {
         assertEquals(true, autoMute.first())
     }
 
+    @Test
+    fun availableDevicesAlwaysIncludeEarpieceAndSpeaker() {
+        val coordinator = AudioSessionCoordinator(context)
+        coordinator.start()
+        assertTrue(coordinator.availableDevices.value.contains(AudioDevice.EARPIECE))
+        assertTrue(coordinator.availableDevices.value.contains(AudioDevice.SPEAKER))
+    }
+
     private fun focusListenerOf(coordinator: AudioSessionCoordinator): AudioManager.OnAudioFocusChangeListener {
         val field = AudioSessionCoordinator::class.java.getDeclaredField("focusListener")
         field.isAccessible = true
