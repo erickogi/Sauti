@@ -46,6 +46,7 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
   const requireOrigin = deps.requireOrigin ?? true;
   const allowedOrigins = deps.allowedOrigins;
   const roomTtl = Math.max(graceMs * 2, 60000);
+  const keepaliveMs = Math.max(1000, Math.floor(roomTtl / 2));
 
   const wss = new WebSocketServer({ noServer: true });
   const rooms = new Map<string, Map<string, WebSocket>>();
@@ -138,6 +139,18 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
       await unsubscribeRoom(roomId);
     }
   }
+
+  async function refreshLocalRooms(): Promise<void> {
+    for (const roomId of rooms.keys()) {
+      await redis.pexpire(roomKey(roomId), roomTtl);
+      await redis.pexpire(metaKey(roomId), roomTtl);
+    }
+  }
+
+  const keepalive = setInterval(() => {
+    void refreshLocalRooms();
+  }, keepaliveMs);
+  keepalive.unref?.();
 
   async function getStartedAt(roomId: string): Promise<number | null> {
     const raw = await redis.hget(metaKey(roomId), 'startedAt');
@@ -672,6 +685,7 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
   }
 
   async function close(): Promise<void> {
+    clearInterval(keepalive);
     for (const timer of sweeps.values()) clearTimeout(timer);
     sweeps.clear();
     for (const roomId of [...roomHandlers.keys()]) {
