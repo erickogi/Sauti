@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PATTERN='driver|passenger|trip|rider'
 STATUS=0
 
-for module in engine android rx2; do
+for module in engine android rx2 ui-compose; do
   MAIN="$ROOT/$module/src/main"
   if [ -d "$MAIN" ]; then
     if grep -rniE "$PATTERN" "$MAIN" >/dev/null 2>&1; then

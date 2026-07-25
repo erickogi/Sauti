@@ -33,7 +33,7 @@ check_xml() {
 while IFS= read -r -d '' file; do
   check_kotlin "$file"
 done < <(
-  for module in engine android rx2; do
+  for module in engine android rx2 ui-compose; do
     find "$ROOT/$module/src" -name '*.kt' -print0 2>/dev/null
     find "$ROOT/$module" -maxdepth 1 -name '*.gradle.kts' -print0 2>/dev/null
   done
@@ -43,7 +43,7 @@ done < <(
 while IFS= read -r -d '' file; do
   check_xml "$file"
 done < <(
-  for module in engine android rx2; do
+  for module in engine android rx2 ui-compose; do
     find "$ROOT/$module/src" -name '*.xml' -print0 2>/dev/null
   done
 )

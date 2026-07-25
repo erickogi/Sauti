@@ -12,6 +12,8 @@ robolectric = "4.11.1"
 androidxTest = "1.5.0"
 androidxTestExtJunit = "1.1.5"
 rxjava2 = "2.2.21"
+composeBom = "2024.06.00"
+composeCompiler = "1.5.14"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -31,6 +33,13 @@ androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTes
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTest" }
 androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTest" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }

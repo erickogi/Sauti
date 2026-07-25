@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "sauti-android"
 
-include(":engine", ":android", ":rx2")
+include(":engine", ":android", ":rx2", ":ui-compose")
