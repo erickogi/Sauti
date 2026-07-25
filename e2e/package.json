@@ -1,0 +1,23 @@
+{
+  "name": "@sauti/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "playwright test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "purity": "! grep -riE 'driver|passenger|trip|rider' --include='*.ts' -r src tests"
+  },
+  "dependencies": {
+    "@sauti/core": "workspace:*",
+    "@sauti/server": "workspace:*",
+    "@sauti/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^20.16.11",
+    "esbuild": "^0.24.0",
+    "ioredis": "^5.4.1",
+    "typescript": "^5.6.3"
+  }
+}
