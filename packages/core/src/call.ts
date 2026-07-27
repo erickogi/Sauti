@@ -305,6 +305,11 @@ export class Call implements SautiCall {
     if (frame.resumed) {
       this.reconcile(frame);
     } else {
+      for (const id of this.mesh.ids()) {
+        this.mesh.removePeer(id);
+        this.store.removeParticipant(id);
+        this.trackers.delete(id);
+      }
       for (const peer of frame.peers) {
         this.store.upsertParticipant({
           participantId: peer.participantId,
