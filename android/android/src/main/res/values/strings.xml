@@ -5,4 +5,7 @@
     <string name="sauti_call_ongoing">Call in progress</string>
     <string name="sauti_call_reconnecting">Reconnecting</string>
     <string name="sauti_call_connecting">Connecting</string>
+    <string name="sauti_incoming_channel_name">Incoming calls</string>
+    <string name="sauti_incoming_channel_description">Incoming call alerts</string>
+    <string name="sauti_incoming_call_title">Incoming call</string>
 </resources>

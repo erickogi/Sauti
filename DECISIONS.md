@@ -1,5 +1,36 @@
 # Decisions
 
+## Incoming screen rendering is proving-ground tested, not Robolectric
+
+The `io.sauti:ui-compose` incoming half keeps every unit under plain JVM: the phase
+mapping in `incomingPhaseFor`, the `SautiIncomingCallHost` config round trip, and the
+ordered side effects of `IncomingCallCoordinator` (notification cancel then ring
+start, then stop and release on dismiss). The composable click and render checks that
+would need `androidx.compose.ui:ui-test-junit4` are not wired, so the accept and
+decline callbacks, the caller name, and the absence of accept in CONNECTING are
+verified through the extracted logic plus the passenger app proving ground. The
+no-double-ring guarantee is asserted as an ordering test on the coordinator seam the
+Activity delegates to, so the invariant is covered without a device.
+
+## incomingPhaseFor is provided but not driven by the batteries Activity
+
+`SautiIncomingCallActivity` flips a local `accepted` flag to move INCOMING to
+CONNECTING for a snappy response, and forwards accept and decline to the injected
+`SautiIncomingCallHost` callbacks. It holds no `SautiClient`, so it does not observe
+the engine `CallPhase` itself. `incomingPhaseFor` is the pure mapping an adopter or a
+client-aware caller uses to drive the CONNECTED handoff and the LEFT finish; keeping
+it out of the domain-free Activity preserves the module direction and the
+no-client-in-the-Activity rule while leaving the mapping fully unit tested.
+
+## Teardown runs on decline and onDestroy
+
+The incoming Activity releases the dedupe slot only on final teardown, from decline
+and from `onDestroy`, not from `onStop`. Releasing on `onStop` would free the slot
+while the user is briefly away during CONNECTING and let a duplicate invite present
+over a live acceptance. The notification cancel is idempotent and safe to repeat, so
+it also runs on teardown; the slot release is the one step gated to the terminal
+path.
+
 ## Ringback ignores ringer mode; incoming ring honors it
 
 The in-app ring cue (capability 1B, `io.sauti.android.ring`) treats the two

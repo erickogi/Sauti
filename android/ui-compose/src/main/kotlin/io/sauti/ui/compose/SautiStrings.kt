@@ -25,7 +25,10 @@ data class SautiStrings(
     val qualityFair: String = "Fair",
     val qualityPoor: String = "Poor",
     val interrupted: String = "Paused for a phone call",
-    val onHold: String = "On hold"
+    val onHold: String = "On hold",
+    val incomingCallTitle: String = "Incoming call",
+    val accept: String = "Accept",
+    val decline: String = "Decline"
 )
 
 val LocalSautiStrings = compositionLocalOf { SautiStrings() }
