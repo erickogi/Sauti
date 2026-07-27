@@ -201,6 +201,16 @@ class CallSession(
         if (frame.resumed) {
             reconcile(frame, currentMesh)
         } else {
+            // A non-resumed ready means the server re-introduced everyone from
+            // scratch (we rejoined after the grace window expired). Any peer still
+            // in the mesh is stale: addPeer would overwrite its map entry and leak
+            // the old RTCPeerConnection, so the rejoin never renegotiates. Tear the
+            // survivors down first. On an initial join the mesh is empty, a no-op.
+            for (id in currentMesh.ids()) {
+                currentMesh.removePeer(id)
+                store.removeParticipant(id)
+                trackers.remove(id)
+            }
             for (peer in frame.peers) {
                 seedPeer(peer, ConnectionState.CONNECTING)
                 currentMesh.addPeer(peer.participantId)

@@ -227,6 +227,56 @@ class CallSessionTest {
     }
 
     @Test
+    fun freshReadyAfterGraceExpiryRebuildsStalePeers() = runTest {
+        val h = buildHarness(backgroundScope)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "token-A")) }
+        runCurrent()
+        h.hub.latest.deliver(Frames.ready("a", peers = listOf(Frames.participant("b"))))
+        runCurrent()
+        val stalePc = h.rtc.created.first()
+
+        h.hub.latest.dropByServer()
+        runCurrent()
+        advanceTimeBy(2_000)
+        runCurrent()
+        h.hub.latest.deliver(
+            Frames.ready("a", peers = listOf(Frames.participant("b")), resumed = false)
+        )
+        runCurrent()
+
+        assertTrue(stalePc.closed)
+        assertEquals(2, h.rtc.created.size)
+        assertFalse(h.rtc.created.last().closed)
+    }
+
+    @Test
+    fun freshReadyAfterGraceExpiryDropsVanishedPeers() = runTest {
+        val h = buildHarness(backgroundScope)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "token-A")) }
+        runCurrent()
+        h.hub.latest.deliver(
+            Frames.ready("a", peers = listOf(Frames.participant("b"), Frames.participant("c")))
+        )
+        runCurrent()
+        val staleB = h.rtc.created[0]
+        val staleC = h.rtc.created[1]
+
+        h.hub.latest.dropByServer()
+        runCurrent()
+        advanceTimeBy(2_000)
+        runCurrent()
+        h.hub.latest.deliver(
+            Frames.ready("a", peers = listOf(Frames.participant("b")), resumed = false)
+        )
+        runCurrent()
+
+        assertTrue(staleB.closed)
+        assertTrue(staleC.closed)
+        val present = h.session.state.value.participants.map { it.participantId }.sorted()
+        assertEquals(listOf("a", "b"), present)
+    }
+
+    @Test
     fun unreachableFrameMarksPeerReconnecting() = runTest {
         val h = buildHarness(backgroundScope)
         backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
