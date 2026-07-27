@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 
 data class JoinConfig(
     val url: String,
-    val token: String
+    val token: String,
+    val endWhenLastPeerLeaves: Boolean = false
 )
 
 data class EngineConfig(
@@ -58,6 +59,8 @@ class CallSession(
     private var active = false
     private var localMuted = false
     private var localOnHold = false
+    private var endWhenLastPeerLeaves = false
+    private var hadRemotePeer = false
 
     private var durationJob: Job? = null
     private var qualityJob: Job? = null
@@ -66,6 +69,7 @@ class CallSession(
     suspend fun join(config: JoinConfig) {
         if (active) return
         active = true
+        endWhenLastPeerLeaves = config.endWhenLastPeerLeaves
         store.setPhase(CallPhase.CONNECTING)
         applyLocalAudio()
 
@@ -121,6 +125,21 @@ class CallSession(
         localMedia?.setAudioEnabled(!(localMuted || localOnHold))
     }
 
+    private fun remoteCount(): Int =
+        store.state.value.participants.count { it.participantId != store.selfId() }
+
+    private fun maybeEndForLastPeer() {
+        if (store.state.value.phase != CallPhase.CONNECTED) return
+        if (remoteCount() > 0) {
+            hadRemotePeer = true
+            return
+        }
+        if (endWhenLastPeerLeaves && hadRemotePeer) {
+            hadRemotePeer = false
+            leave()
+        }
+    }
+
     private fun handleFrame(frame: ServerFrame) {
         when (frame) {
             is ServerFrame.Ready -> onReady(frame)
@@ -138,6 +157,7 @@ class CallSession(
                 store.removeParticipant(frame.participantId)
                 trackers.remove(frame.participantId)
                 emit(CallEvent.Left(frame.participantId))
+                maybeEndForLastPeer()
             }
             is ServerFrame.RoomStarted -> {
                 store.setStartedAt(frame.startedAt)
@@ -220,6 +240,7 @@ class CallSession(
         store.setPhase(CallPhase.CONNECTED)
         if (frame.resumed) emit(CallEvent.Reconnected)
         finishJoin()
+        maybeEndForLastPeer()
     }
 
     private fun reconcile(frame: ServerFrame.Ready, currentMesh: Mesh) {
@@ -260,6 +281,7 @@ class CallSession(
         seedPeer(participant, ConnectionState.CONNECTING)
         currentMesh.addPeer(participant.participantId)
         emit(CallEvent.Joined(participant.participantId))
+        maybeEndForLastPeer()
     }
 
     private fun onServerError(code: String, message: String) {
@@ -352,6 +374,8 @@ class CallSession(
         active = false
         localMuted = false
         localOnHold = false
+        endWhenLastPeerLeaves = false
+        hadRemotePeer = false
         store.reset()
     }
 }

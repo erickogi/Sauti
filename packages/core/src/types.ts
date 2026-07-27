@@ -129,6 +129,7 @@ export interface CallSnapshot {
 export interface JoinOptions {
   url: string;
   token: string;
+  endWhenLastPeerLeaves?: boolean;
 }
 
 export interface SautiOptions {

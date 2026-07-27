@@ -72,6 +72,8 @@ export class Call implements SautiCall {
   private clockCaptured = false;
   private localMuted = false;
   private localOnHold = false;
+  private endWhenLastPeerLeaves = false;
+  private hadRemotePeer = false;
 
   private durationTimer: ReturnType<typeof setInterval> | null = null;
   private qualityTimer: ReturnType<typeof setInterval> | null = null;
@@ -179,6 +181,7 @@ export class Call implements SautiCall {
       throw new InsecureTransportError('signaling requires a wss:// endpoint');
     }
     await this.acquireMic();
+    this.endWhenLastPeerLeaves = options.endWhenLastPeerLeaves ?? false;
     this.active = true;
     this.clockCaptured = false;
     this.store.setPhase('connecting');
@@ -246,6 +249,7 @@ export class Call implements SautiCall {
         this.store.removeParticipant(frame.participantId);
         this.trackers.delete(frame.participantId);
         this.emitter.emit('left', { participantId: frame.participantId });
+        this.maybeEndForLastPeer();
         break;
       case 'room-started':
         this.store.setStartedAt(frame.startedAt);
@@ -330,6 +334,7 @@ export class Call implements SautiCall {
     this.store.setPhase('connected');
     if (frame.resumed) this.emitter.emit('reconnected', {});
     this.finishJoin();
+    this.maybeEndForLastPeer();
   }
 
   private reconcile(frame: ReadyFrame): void {
@@ -363,6 +368,26 @@ export class Call implements SautiCall {
     });
     this.mesh?.addPeer(participant.participantId);
     this.emitter.emit('joined', { participantId: participant.participantId });
+    this.maybeEndForLastPeer();
+  }
+
+  private remoteCount(): number {
+    const selfId = this.store.getSelfId();
+    return this.store.getSnapshot().participants.filter(
+      (p) => p.participantId !== selfId
+    ).length;
+  }
+
+  private maybeEndForLastPeer(): void {
+    if (this.store.getSnapshot().phase !== 'connected') return;
+    if (this.remoteCount() > 0) {
+      this.hadRemotePeer = true;
+      return;
+    }
+    if (this.endWhenLastPeerLeaves && this.hadRemotePeer) {
+      this.hadRemotePeer = false;
+      this.leave();
+    }
   }
 
   private onServerError(code: string, message: string): void {
@@ -501,6 +526,8 @@ export class Call implements SautiCall {
     this.active = false;
     this.localMuted = false;
     this.localOnHold = false;
+    this.endWhenLastPeerLeaves = false;
+    this.hadRemotePeer = false;
     this.store.reset();
   }
 
