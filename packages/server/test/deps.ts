@@ -50,6 +50,7 @@ export function makeDeps(
     onEvent: overrides?.onEvent ?? ((e) => events.push(e)),
     maxParticipantsPerRoom: overrides?.maxParticipantsPerRoom,
     graceMs: overrides?.graceMs,
+    heartbeatMs: overrides?.heartbeatMs,
     allowedOrigins: overrides?.allowedOrigins,
     requireOrigin: overrides?.requireOrigin,
     rateLimiter: overrides?.rateLimiter

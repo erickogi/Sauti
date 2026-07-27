@@ -47,12 +47,16 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
   const allowedOrigins = deps.allowedOrigins;
   const roomTtl = Math.max(graceMs * 2, 60000);
   const keepaliveMs = Math.max(1000, Math.floor(roomTtl / 2));
+  const heartbeatMs =
+    deps.heartbeatMs !== undefined && deps.heartbeatMs > 0 ? Math.max(50, deps.heartbeatMs) : 0;
+  const heartbeatEnabled = heartbeatMs > 0;
 
   const wss = new WebSocketServer({ noServer: true });
   const rooms = new Map<string, Map<string, WebSocket>>();
   const roomHandlers = new Map<string, (message: string) => void>();
   const sweeps = new Map<string, ReturnType<typeof setTimeout>>();
   const allSockets = new Set<WebSocket>();
+  const liveness = new Map<WebSocket, boolean>();
 
   const roomKey = (roomId: string): string => `${deps.namespace}:room:${roomId}`;
   const metaKey = (roomId: string): string =>
@@ -151,6 +155,33 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
     void refreshLocalRooms();
   }, keepaliveMs);
   keepalive.unref?.();
+
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  if (heartbeatEnabled) {
+    heartbeat = setInterval(() => {
+      const dead: WebSocket[] = [];
+      for (const ws of allSockets) {
+        if (liveness.get(ws) === false) {
+          dead.push(ws);
+          continue;
+        }
+        liveness.set(ws, false);
+        try {
+          ws.ping();
+        } catch {
+          dead.push(ws);
+        }
+      }
+      for (const ws of dead) {
+        try {
+          ws.terminate();
+        } catch {
+          void 0;
+        }
+      }
+    }, heartbeatMs);
+    heartbeat.unref?.();
+  }
 
   async function getStartedAt(roomId: string): Promise<number | null> {
     const raw = await redis.hget(metaKey(roomId), 'startedAt');
@@ -601,6 +632,12 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
       generation: '0'
     };
     allSockets.add(ws);
+    if (heartbeatEnabled) {
+      liveness.set(ws, true);
+      ws.on('pong', () => {
+        liveness.set(ws, true);
+      });
+    }
     ws.on('message', (data: RawData) => {
       let raw: unknown;
       try {
@@ -616,6 +653,7 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
     });
     ws.on('close', () => {
       allSockets.delete(ws);
+      liveness.delete(ws);
       void handleDrop(conn);
     });
     ws.on('error', () => {});
@@ -686,6 +724,7 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
 
   async function close(): Promise<void> {
     clearInterval(keepalive);
+    if (heartbeat) clearInterval(heartbeat);
     for (const timer of sweeps.values()) clearTimeout(timer);
     sweeps.clear();
     for (const roomId of [...roomHandlers.keys()]) {

@@ -48,6 +48,7 @@ export interface CreateServerDeps {
   namespace: string;
   maxParticipantsPerRoom?: number;
   graceMs?: number;
+  heartbeatMs?: number;
   allowedOrigins?: string[];
   requireOrigin?: boolean;
   onEvent?: EventSink;
