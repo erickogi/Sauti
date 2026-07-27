@@ -1,5 +1,27 @@
 # Decisions
 
+## Ringback ignores ringer mode; incoming ring honors it
+
+The in-app ring cue (capability 1B, `io.sauti.android.ring`) treats the two
+directions differently. Ringback, the tone a caller hears while waiting for the
+callee, plays through `ToneGenerator` on the music stream and is never gated by the
+device ringer mode. A caller who started the call is not surprised by hearing the
+waiting tone, and silencing it on a SILENT phone would leave the caller with no
+feedback that the call is live. Only the incoming ringtone and vibration respect
+SILENT, VIBRATE, and NORMAL, because those interrupt a callee who did not initiate
+anything. The ringer mode is an input to `RingReducer.reduce`, so the split lives in
+the pure layer and stays fully unit-tested.
+
+## Incoming rings for IDLE and CONNECTING
+
+`RingReducer` returns an incoming cue while the callee-side phase is IDLE or
+CONNECTING, not IDLE alone. Adopters model an invite in one of two ways: some ring
+before joining any room (phase still IDLE), others treat the invite as an early
+CONNECTING. Covering both makes the component robust to either wiring. The answered
+signal for a callee is the local phase reaching CONNECTED, at which point the cue
+stops. An adopter that wants the ring to cut the instant the user taps accept calls
+`SautiRinger.stop()` at that point rather than waiting for the phase transition.
+
 ## Room enumeration uses a registry hash, not SCAN
 
 `listActiveRooms` enumerates active rooms by reading a maintained registry hash at
