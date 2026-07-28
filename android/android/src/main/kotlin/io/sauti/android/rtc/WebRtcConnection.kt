@@ -1,9 +1,11 @@
 package io.sauti.android.rtc
 
 import io.sauti.engine.IceCandidate
+import io.sauti.engine.OpusConfig
 import io.sauti.engine.PeerConnectionPort
 import io.sauti.engine.SdpDescription
 import io.sauti.engine.StatsSample
+import io.sauti.engine.transformOpusSdp
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
@@ -16,8 +18,11 @@ import kotlin.coroutines.resumeWithException
 import org.webrtc.IceCandidate as WebRtcIceCandidate
 
 class WebRtcConnection(
-    private val streamId: String
+    private val streamId: String,
+    private val opus: OpusConfig = OpusConfig()
 ) : PeerConnectionPort, PeerConnection.Observer {
+
+    internal fun applyOpus(sdp: String): String = transformOpusSdp(sdp, dtx = false, fec = opus.fec)
 
     lateinit var connection: PeerConnection
 
@@ -63,7 +68,7 @@ class WebRtcConnection(
                 override fun onSetFailure(error: String?) = Unit
             }, constraints)
         }
-        return SdpDescription("offer", description.description)
+        return SdpDescription("offer", applyOpus(description.description))
     }
 
     override suspend fun createAnswer(): SdpDescription {
@@ -75,7 +80,7 @@ class WebRtcConnection(
                 override fun onSetFailure(error: String?) = Unit
             }, MediaConstraints())
         }
-        return SdpDescription("answer", description.description)
+        return SdpDescription("answer", applyOpus(description.description))
     }
 
     override suspend fun setLocalDescription(description: SdpDescription) {

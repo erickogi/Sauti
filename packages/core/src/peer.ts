@@ -1,4 +1,5 @@
 import { PROTOCOL_VERSION, isPolite } from '@sauti/protocol';
+import { transformOpus, type OpusOptions } from './sdp.js';
 import type {
   IceCandidateLike,
   PeerLike,
@@ -31,7 +32,8 @@ export class Peer {
     pc: PeerLike,
     localStream: StreamLike,
     localTrack: TrackLike,
-    private readonly signal: PeerSignal
+    private readonly signal: PeerSignal,
+    private readonly opus: OpusOptions = {}
   ) {
     this.peerId = peerId;
     this.pc = pc;
@@ -77,12 +79,13 @@ export class Peer {
     this.makingOffer = true;
     try {
       const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
+      const sdp = transformOpus(offer.sdp ?? '', { fec: this.opus.fec ?? false, dtx: false });
+      await this.pc.setLocalDescription({ type: 'offer', sdp });
       this.signal.send({
         v: PROTOCOL_VERSION,
         type: 'offer',
         to: this.peerId,
-        sdp: offer.sdp ?? ''
+        sdp
       });
     } catch (error) {
       this.signal.onError(error);
@@ -100,12 +103,13 @@ export class Peer {
     }
     await this.pc.setRemoteDescription({ type: 'offer', sdp });
     const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
+    const local = transformOpus(answer.sdp ?? '', { fec: this.opus.fec ?? false, dtx: false });
+    await this.pc.setLocalDescription({ type: 'answer', sdp: local });
     this.signal.send({
       v: PROTOCOL_VERSION,
       type: 'answer',
       to: this.peerId,
-      sdp: answer.sdp ?? ''
+      sdp: local
     });
   }
 

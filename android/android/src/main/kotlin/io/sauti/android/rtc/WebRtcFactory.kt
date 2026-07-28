@@ -4,6 +4,7 @@ import android.content.Context
 import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.IceServer
 import io.sauti.engine.LocalMediaController
+import io.sauti.engine.OpusConfig
 import io.sauti.engine.PeerConnectionPort
 import io.sauti.engine.RtcFactory
 import io.sauti.engine.audioConstraints
@@ -25,7 +26,8 @@ internal fun buildAudioConstraints(config: AudioProcessingConfig): MediaConstrai
 
 class WebRtcFactory(
     context: Context,
-    audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
+    audioProcessing: AudioProcessingConfig = AudioProcessingConfig(),
+    private val opus: OpusConfig = OpusConfig()
 ) : RtcFactory, LocalMediaController {
 
     private val appContext = context.applicationContext
@@ -65,7 +67,7 @@ class WebRtcFactory(
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
         }
-        val port = WebRtcConnection(streamId)
+        val port = WebRtcConnection(streamId, opus)
         val connection = factory.createPeerConnection(config, port)
             ?: throw RtcException("factory returned a null peer connection")
         port.connection = connection

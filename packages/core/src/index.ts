@@ -16,6 +16,7 @@ export { CallStore } from './store.js';
 export { Emitter } from './emitter.js';
 export { Mesh } from './mesh.js';
 export { Peer } from './peer.js';
+export { transformOpus, type OpusOptions } from './sdp.js';
 export { SignalingClient } from './signaling.js';
 export {
   SautiError,

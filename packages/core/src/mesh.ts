@@ -1,5 +1,6 @@
 import type { AudioSinkManager } from './audio.js';
 import { Peer, type PeerSignal } from './peer.js';
+import type { OpusOptions } from './sdp.js';
 import type {
   IceCandidateLike,
   IceServerConfig,
@@ -25,7 +26,8 @@ export class Mesh {
     private readonly runtime: SautiRuntime,
     private readonly sinks: AudioSinkManager,
     private readonly selfId: string,
-    private readonly hooks: MeshHooks
+    private readonly hooks: MeshHooks,
+    private readonly opus: OpusOptions = {}
   ) {
     this.signal = {
       send: (frame) => this.hooks.send(frame),
@@ -69,7 +71,8 @@ export class Mesh {
       pc,
       this.local.stream,
       this.local.track,
-      this.signal
+      this.signal,
+      this.opus
     );
     this.peers.set(peerId, peer);
     return peer;

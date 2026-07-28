@@ -9,6 +9,7 @@ import io.sauti.engine.CallSession
 import io.sauti.engine.CallState
 import io.sauti.engine.EngineConfig
 import io.sauti.engine.JoinConfig
+import io.sauti.engine.OpusConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +29,10 @@ class WebRtcCallEngine(
     context: Context,
     engineConfig: EngineConfig,
     scope: CoroutineScope,
-    audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
+    audioProcessing: AudioProcessingConfig = AudioProcessingConfig(),
+    opus: OpusConfig = OpusConfig()
 ) : CallEngine {
-    private val rtcFactory = WebRtcFactory(context.applicationContext, audioProcessing)
+    private val rtcFactory = WebRtcFactory(context.applicationContext, audioProcessing, opus)
     private val session = CallSession(
         rtcFactory = rtcFactory,
         transportFactory = OkHttpSignalingFactory(),

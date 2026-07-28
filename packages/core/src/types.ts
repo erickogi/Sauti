@@ -163,6 +163,10 @@ export interface SautiOptions {
     noiseSuppression?: boolean;
     autoGainControl?: boolean;
   };
+  opus?: {
+    fec?: boolean;
+    dtx?: boolean;
+  };
 }
 
 export interface SautiEvents {

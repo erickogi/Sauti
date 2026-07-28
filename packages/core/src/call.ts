@@ -64,6 +64,7 @@ export class Call implements SautiCall {
   private readonly reconnectMaxMs: number;
   private readonly statsIntervalMs: number;
   private readonly audioProcessing: SautiOptions['audioProcessing'];
+  private readonly opus: SautiOptions['opus'];
 
   private signaling: SignalingClient | null = null;
   private mesh: Mesh | null = null;
@@ -96,6 +97,7 @@ export class Call implements SautiCall {
     this.reconnectMaxMs = options.reconnectMaxMs ?? this.graceMs;
     this.statsIntervalMs = options.statsIntervalMs ?? 2000;
     this.audioProcessing = options.audioProcessing;
+    this.opus = options.opus;
     this.store = new CallStore(() => this.runtime.now());
     this.sinks = new AudioSinkManager(
       this.runtime,
@@ -308,11 +310,17 @@ export class Call implements SautiCall {
     this.store.setSelf(selfId);
 
     if (!this.mesh) {
-      this.mesh = new Mesh(this.runtime, this.sinks, selfId, {
-        send: (f) => this.signaling?.send(f),
-        onConnected: (peerId) => this.store.setConnectionState(peerId, 'connected'),
-        onError: (e) => this.surface2(e)
-      });
+      this.mesh = new Mesh(
+        this.runtime,
+        this.sinks,
+        selfId,
+        {
+          send: (f) => this.signaling?.send(f),
+          onConnected: (peerId) => this.store.setConnectionState(peerId, 'connected'),
+          onError: (e) => this.surface2(e)
+        },
+        this.opus ?? {}
+      );
     }
     this.mesh.setIceServers(frame.iceServers);
     if (this.localStream && this.localTrack) {
