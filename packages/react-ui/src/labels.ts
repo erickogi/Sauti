@@ -1,4 +1,6 @@
-import type { Quality } from '@sauti/core';
+import type { ParticipantView, Quality } from '@sauti/core';
+
+type ConnectionState = ParticipantView['connectionState'];
 
 export interface SautiLabels {
   you: string;
@@ -32,7 +34,7 @@ export const defaultLabels: SautiLabels = {
   end: 'End',
   statusIdle: 'Ready',
   statusConnecting: 'Connecting',
-  statusReconnecting: 'Reconnecting',
+  statusReconnecting: 'Reconnecting…',
   statusInCall: 'In call',
   statusEnded: 'Ended',
   qualityGood: 'Good',
@@ -61,6 +63,10 @@ export function qualityLabel(quality: Quality, labels: SautiLabels): string {
     default:
       return labels.qualityFair;
   }
+}
+
+export function isReconnecting(state: ConnectionState): boolean {
+  return state === 'reconnecting' || state === 'unreachable';
 }
 
 export function qualityToken(quality: Quality): 'good' | 'fair' | 'poor' {

@@ -4,7 +4,8 @@ import {
   defaultLabels,
   resolveLabels,
   qualityLabel,
-  qualityToken
+  qualityToken,
+  isReconnecting
 } from '../src/labels.js';
 import { formatDuration } from '../src/hooks/useDurationLabel.js';
 import { deriveStatusKey } from '../src/hooks/useCallStatus.js';
@@ -62,6 +63,20 @@ describe('labels', () => {
     expect(qualityToken('poor')).toBe('poor');
     expect(qualityToken('other' as unknown as Quality)).toBe('fair');
   });
+
+  it('defaults the reconnecting label to the ellipsis spelling', () => {
+    expect(defaultLabels.statusReconnecting).toBe('Reconnecting…');
+  });
+});
+
+describe('isReconnecting', () => {
+  it('reduces reconnecting and unreachable to true and leaves the rest false', () => {
+    expect(isReconnecting('reconnecting')).toBe(true);
+    expect(isReconnecting('unreachable')).toBe(true);
+    expect(isReconnecting('connected')).toBe(false);
+    expect(isReconnecting('connecting')).toBe(false);
+    expect(isReconnecting('left')).toBe(false);
+  });
 });
 
 describe('formatDuration', () => {
@@ -85,6 +100,33 @@ describe('deriveStatusKey', () => {
     expect(deriveStatusKey(snap({ phase: 'connecting' }))).toBe('connecting');
     expect(deriveStatusKey(snap({ phase: 'connected' }))).toBe('connected');
     expect(deriveStatusKey(snap({ phase: 'idle' }))).toBe('idle');
+  });
+
+  it('reports reconnecting when a non-self peer is reconnecting or unreachable', () => {
+    const withPeer = (state: ParticipantView['connectionState']) =>
+      snap({
+        phase: 'connected',
+        reconnecting: false,
+        participants: [
+          part({ participantId: 'p-self' }),
+          part({ participantId: 'p-peer', connectionState: state })
+        ]
+      });
+    expect(deriveStatusKey(withPeer('reconnecting'), 'p-self')).toBe('reconnecting');
+    expect(deriveStatusKey(withPeer('unreachable'), 'p-self')).toBe('reconnecting');
+    expect(deriveStatusKey(withPeer('connected'), 'p-self')).toBe('connected');
+  });
+
+  it('ignores a self-only reconnection and keeps the phase-derived key', () => {
+    const snapshot = snap({
+      phase: 'connected',
+      reconnecting: false,
+      participants: [
+        part({ participantId: 'p-self', connectionState: 'reconnecting' }),
+        part({ participantId: 'p-peer', connectionState: 'connected' })
+      ]
+    });
+    expect(deriveStatusKey(snapshot, 'p-self')).toBe('connected');
   });
 });
 

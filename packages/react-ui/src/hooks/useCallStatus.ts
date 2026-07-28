@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { CallSnapshot } from '@sauti/core';
+import { isReconnecting } from '../labels.js';
 import type { SautiLabels } from '../labels.js';
 
 export type CallStatusKey =
@@ -14,9 +15,17 @@ export interface CallStatusView {
   text: string;
 }
 
-export function deriveStatusKey(snapshot: CallSnapshot): CallStatusKey {
+export function deriveStatusKey(
+  snapshot: CallSnapshot,
+  selfId?: string
+): CallStatusKey {
   if (snapshot.phase === 'left') return 'ended';
-  if (snapshot.reconnecting) return 'reconnecting';
+  const peerReconnecting = snapshot.participants.some(
+    (p) =>
+      (selfId == null || p.participantId !== selfId) &&
+      isReconnecting(p.connectionState)
+  );
+  if (snapshot.reconnecting || peerReconnecting) return 'reconnecting';
   if (snapshot.phase === 'connecting') return 'connecting';
   if (snapshot.phase === 'connected') return 'connected';
   return 'idle';
@@ -24,10 +33,11 @@ export function deriveStatusKey(snapshot: CallSnapshot): CallStatusKey {
 
 export function useCallStatus(
   snapshot: CallSnapshot,
-  labels: SautiLabels
+  labels: SautiLabels,
+  selfId?: string
 ): CallStatusView {
   return useMemo(() => {
-    const key = deriveStatusKey(snapshot);
+    const key = deriveStatusKey(snapshot, selfId);
     const text: Record<CallStatusKey, string> = {
       idle: labels.statusIdle,
       connecting: labels.statusConnecting,
@@ -36,5 +46,5 @@ export function useCallStatus(
       ended: labels.statusEnded
     };
     return { key, text: text[key] };
-  }, [snapshot, labels]);
+  }, [snapshot, labels, selfId]);
 }

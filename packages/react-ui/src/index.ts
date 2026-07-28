@@ -26,6 +26,7 @@ export {
   resolveLabels,
   qualityLabel,
   qualityToken,
+  isReconnecting,
   type SautiLabels
 } from './labels.js';
 

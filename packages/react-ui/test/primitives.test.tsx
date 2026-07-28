@@ -91,6 +91,46 @@ describe('CallStatus', () => {
     expect(status).toHaveAttribute('aria-live', 'polite');
     expect(status).toHaveAttribute('data-status', 'connected');
   });
+
+  it('flips to the reconnecting label when a remote peer is reconnecting or unreachable', () => {
+    const remote = (state: 'reconnecting' | 'unreachable') =>
+      fakeBinding({
+        phase: 'connected',
+        reconnecting: false,
+        participants: [
+          participant({ participantId: 'p-self' }),
+          participant({ participantId: 'p-peer', connectionState: state })
+        ]
+      });
+    const { rerender } = render(
+      <CallStatus snapshot={remote('reconnecting')} selfId="p-self" />
+    );
+    const status = screen.getByText('Reconnecting…');
+    expect(status).toHaveAttribute('data-status', 'reconnecting');
+    rerender(<CallStatus snapshot={remote('unreachable')} selfId="p-self" />);
+    expect(screen.getByText('Reconnecting…')).toHaveAttribute(
+      'data-status',
+      'reconnecting'
+    );
+  });
+
+  it('does not flip when only the self participant is reconnecting', () => {
+    render(
+      <CallStatus
+        snapshot={fakeBinding({
+          phase: 'connected',
+          reconnecting: false,
+          participants: [
+            participant({ participantId: 'p-self', connectionState: 'reconnecting' }),
+            participant({ participantId: 'p-peer', connectionState: 'connected' })
+          ]
+        })}
+        selfId="p-self"
+      />
+    );
+    const status = screen.getByText('In call');
+    expect(status).toHaveAttribute('data-status', 'connected');
+  });
 });
 
 describe('ParticipantList', () => {
@@ -114,6 +154,22 @@ describe('ParticipantList', () => {
     expect(items[0]).toHaveTextContent('On hold');
     expect(items[1]).toHaveTextContent('Ada');
     expect(within(items[1]!).getByText('Fair')).toBeInTheDocument();
+  });
+
+  it('marks a reconnecting remote row while a connected peer stays plain', () => {
+    const binding = fakeBinding({
+      participants: [
+        participant({ participantId: 'p-a', metadata: { name: 'Ada' }, connectionState: 'reconnecting' }),
+        participant({ participantId: 'p-b', metadata: { name: 'Ben' }, connectionState: 'connected' })
+      ]
+    });
+    render(<ParticipantList binding={binding} />);
+    const ada = screen.getByText('Ada').closest('li')!;
+    const ben = screen.getByText('Ben').closest('li')!;
+    expect(within(ada).getByText('Reconnecting…')).toBeInTheDocument();
+    expect(ada).toHaveAttribute('data-reconnecting', 'true');
+    expect(within(ben).queryByText('Reconnecting…')).toBeNull();
+    expect(ben).not.toHaveAttribute('data-reconnecting');
   });
 
   it('supports a custom render function', () => {
@@ -151,6 +207,58 @@ describe('ParticipantTile', () => {
       </ul>
     );
     expect(screen.getByText('Ada')).toBeInTheDocument();
+  });
+
+  it('shows the reconnecting treatment for reconnecting and unreachable rows', () => {
+    for (const state of ['reconnecting', 'unreachable'] as const) {
+      const { container, unmount } = render(
+        <ul>
+          <ParticipantTile
+            participant={participant({ participantId: 'p-a', connectionState: state })}
+            isSelf={false}
+            name="Ada"
+          />
+        </ul>
+      );
+      const item = container.querySelector('li')!;
+      expect(within(item).getByText('Reconnecting…')).toBeInTheDocument();
+      expect(item).toHaveAttribute('data-reconnecting', 'true');
+      expect(item).toHaveAttribute('data-connection', state);
+      unmount();
+    }
+  });
+
+  it('leaves connected, connecting and left rows untouched', () => {
+    for (const state of ['connected', 'connecting', 'left'] as const) {
+      const { container, unmount } = render(
+        <ul>
+          <ParticipantTile
+            participant={participant({ participantId: 'p-a', connectionState: state })}
+            isSelf={false}
+            name="Ada"
+          />
+        </ul>
+      );
+      const item = container.querySelector('li')!;
+      expect(within(item).queryByText('Reconnecting…')).toBeNull();
+      expect(item).not.toHaveAttribute('data-reconnecting');
+      expect(item).toHaveAttribute('data-connection', state);
+      unmount();
+    }
+  });
+
+  it('renders the overridden reconnecting label', () => {
+    render(
+      <ul>
+        <ParticipantTile
+          participant={participant({ participantId: 'p-a', connectionState: 'reconnecting' })}
+          isSelf={false}
+          name="Ada"
+          labels={{ statusReconnecting: 'Reattaching' }}
+        />
+      </ul>
+    );
+    expect(screen.getByText('Reattaching')).toBeInTheDocument();
   });
 });
 

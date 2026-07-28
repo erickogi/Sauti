@@ -12,6 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.sauti.engine.ConnectionState
+
+internal fun isReconnecting(state: ConnectionState): Boolean =
+    state == ConnectionState.RECONNECTING || state == ConnectionState.UNREACHABLE
 
 @Composable
 fun ParticipantList(
@@ -63,6 +67,13 @@ fun ParticipantItem(row: SautiParticipantRow, modifier: Modifier = Modifier) {
                 color = SautiTheme.colors.onSurfaceMuted
             )
         }
+        if (isReconnecting(row.connectionState)) {
+            Text(
+                text = strings.reconnecting,
+                style = SautiTheme.typography.caption,
+                color = SautiTheme.colors.qualityFair
+            )
+        }
         QualityIndicator(quality = row.quality)
     }
 }
@@ -71,5 +82,6 @@ internal fun participantStatusText(row: SautiParticipantRow, strings: SautiStrin
     val parts = mutableListOf<String>()
     if (row.muted) parts.add(strings.muted)
     if (row.onHold) parts.add(strings.onHold)
+    if (isReconnecting(row.connectionState)) parts.add(strings.reconnecting)
     return parts.joinToString(separator = ", ")
 }

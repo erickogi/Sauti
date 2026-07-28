@@ -127,6 +127,11 @@
   color: var(--sauti-color-muted);
 }
 
+.sauti-tile--reconnecting {
+  font-size: 0.75rem;
+  color: var(--sauti-color-quality-fair);
+}
+
 .sauti-controlbar {
   display: flex;
   align-items: center;

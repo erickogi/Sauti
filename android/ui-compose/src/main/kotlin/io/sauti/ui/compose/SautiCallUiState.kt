@@ -53,6 +53,7 @@ class SautiCallUiState internal constructor(
 ) {
     val hasOthers: Boolean get() = others.isNotEmpty()
     val isEnded: Boolean get() = phase == CallPhase.LEFT
+    val peerReconnecting: Boolean get() = others.any { isReconnecting(it.connectionState) }
 
     fun toggleMute() = controller.setMuted(!localMuted)
 

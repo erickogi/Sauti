@@ -51,6 +51,24 @@ private fun participant(
     quality = quality
 )
 
+private fun row(
+    id: String = "peer",
+    label: String = "Peer",
+    isSelf: Boolean = false,
+    muted: Boolean = false,
+    onHold: Boolean = false,
+    connectionState: ConnectionState = ConnectionState.CONNECTED,
+    quality: Quality = Quality.GOOD
+): SautiParticipantRow = SautiParticipantRow(
+    participantId = id,
+    label = label,
+    isSelf = isSelf,
+    muted = muted,
+    onHold = onHold,
+    connectionState = connectionState,
+    quality = quality
+)
+
 private fun uiStateOf(
     state: CallState,
     selfParticipantId: String? = null,
@@ -193,5 +211,133 @@ class SautiCallUiStateTest {
         val ui = uiStateOf(CallState(), interrupted = true)
 
         assertTrue(ui.interrupted)
+    }
+
+    @Test
+    fun isReconnectingReducesReconnectingAndUnreachable() {
+        assertTrue(isReconnecting(ConnectionState.RECONNECTING))
+        assertTrue(isReconnecting(ConnectionState.UNREACHABLE))
+        assertFalse(isReconnecting(ConnectionState.CONNECTED))
+        assertFalse(isReconnecting(ConnectionState.CONNECTING))
+        assertFalse(isReconnecting(ConnectionState.LEFT))
+    }
+
+    @Test
+    fun defaultReconnectingStringUsesEllipsis() {
+        assertEquals("Reconnecting…", SautiStrings().reconnecting)
+    }
+
+    @Test
+    fun participantStatusTextAppendsReconnecting() {
+        val strings = SautiStrings()
+        val reconnecting = row(connectionState = ConnectionState.RECONNECTING)
+        val unreachable = row(connectionState = ConnectionState.UNREACHABLE)
+        val connected = row(connectionState = ConnectionState.CONNECTED)
+        val connecting = row(connectionState = ConnectionState.CONNECTING)
+        val left = row(connectionState = ConnectionState.LEFT)
+        val mutedReconnecting = row(muted = true, connectionState = ConnectionState.RECONNECTING)
+
+        assertEquals(strings.reconnecting, participantStatusText(reconnecting, strings))
+        assertEquals(strings.reconnecting, participantStatusText(unreachable, strings))
+        assertEquals("", participantStatusText(connected, strings))
+        assertEquals("", participantStatusText(connecting, strings))
+        assertEquals("", participantStatusText(left, strings))
+        assertEquals(
+            strings.muted + ", " + strings.reconnecting,
+            participantStatusText(mutedReconnecting, strings)
+        )
+    }
+
+    @Test
+    fun peerReconnectingIsRemoteOnly() {
+        val remote = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me"),
+                    participant("peer", connectionState = ConnectionState.RECONNECTING)
+                )
+            ),
+            selfParticipantId = "me"
+        )
+        val remoteUnreachable = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me"),
+                    participant("peer", connectionState = ConnectionState.UNREACHABLE)
+                )
+            ),
+            selfParticipantId = "me"
+        )
+        val selfOnly = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me", connectionState = ConnectionState.RECONNECTING),
+                    participant("peer")
+                )
+            ),
+            selfParticipantId = "me"
+        )
+        val allSettled = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me"),
+                    participant("peer-a", connectionState = ConnectionState.CONNECTED),
+                    participant("peer-b", connectionState = ConnectionState.CONNECTING),
+                    participant("peer-c", connectionState = ConnectionState.LEFT)
+                )
+            ),
+            selfParticipantId = "me"
+        )
+
+        assertTrue(remote.peerReconnecting)
+        assertTrue(remoteUnreachable.peerReconnecting)
+        assertFalse(selfOnly.peerReconnecting)
+        assertFalse(allSettled.peerReconnecting)
+    }
+
+    @Test
+    fun callStatusTextReflectsRemotePeerReconnecting() {
+        val strings = SautiStrings()
+        val peerReconnecting = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me"),
+                    participant("peer", connectionState = ConnectionState.RECONNECTING)
+                ),
+                reconnecting = false
+            ),
+            selfParticipantId = "me"
+        )
+        val peerUnreachable = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me"),
+                    participant("peer", connectionState = ConnectionState.UNREACHABLE)
+                ),
+                reconnecting = false
+            ),
+            selfParticipantId = "me"
+        )
+        val selfOnly = uiStateOf(
+            CallState(
+                phase = CallPhase.CONNECTED,
+                participants = listOf(
+                    participant("me", connectionState = ConnectionState.RECONNECTING),
+                    participant("peer")
+                ),
+                reconnecting = false
+            ),
+            selfParticipantId = "me"
+        )
+
+        assertEquals(strings.reconnecting, callStatusText(peerReconnecting, strings))
+        assertEquals(strings.reconnecting, callStatusText(peerUnreachable, strings))
+        assertEquals(strings.inCall, callStatusText(selfOnly, strings))
     }
 }

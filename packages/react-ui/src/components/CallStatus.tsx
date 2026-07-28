@@ -8,16 +8,18 @@ import type { SautiLabels } from '../labels.js';
 export interface CallStatusProps extends Styleable {
   snapshot: CallSnapshot;
   labels?: Partial<SautiLabels>;
+  selfId?: string;
 }
 
 export function CallStatus({
   snapshot,
   labels,
+  selfId,
   className,
   style
 }: CallStatusProps): ReactElement {
   const resolved = resolveLabels(labels);
-  const status = useCallStatus(snapshot, resolved);
+  const status = useCallStatus(snapshot, resolved, selfId);
   return (
     <span
       className={joinClass('sauti-status', `sauti-status--${status.key}`, className)}

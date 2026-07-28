@@ -41,7 +41,7 @@ export function CallScreen({
   return (
     <div className={joinClass('sauti-call', className)} style={style}>
       <div className="sauti-call__header">
-        <CallStatus snapshot={binding} labels={labels} />
+        <CallStatus snapshot={binding} labels={labels} selfId={selfParticipantId} />
         {connected && (
           <DurationTimer durationMs={binding.durationMs} className="sauti-call__timer" />
         )}

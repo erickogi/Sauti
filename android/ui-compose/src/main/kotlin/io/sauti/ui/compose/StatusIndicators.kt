@@ -30,7 +30,7 @@ internal fun formatDuration(durationMs: Long): String {
 internal fun callStatusText(uiState: SautiCallUiState, strings: SautiStrings): String = when {
     uiState.phase == CallPhase.LEFT -> strings.ended
     uiState.phase == CallPhase.IDLE || uiState.phase == CallPhase.CONNECTING -> strings.connecting
-    uiState.reconnecting -> strings.reconnecting
+    uiState.reconnecting || uiState.peerReconnecting -> strings.reconnecting
     !uiState.hasOthers -> strings.waitingForPeer
     else -> strings.inCall
 }
