@@ -90,3 +90,22 @@ the intended vehicle and states plainly that the interop leg is not yet implemen
 NEG-05 is a known gap. PKG-06's jsdom-vs-interop separation still holds: the config pins
 `environment: 'jsdom'`, the fakes are named `FakePeerConnection`/`FakeWebSocket`, and the
 README keeps the two layers distinct instead of reading the fakes as interop evidence.
+
+## Opus DTX inflates the cumulative-loss metric (Wave 2, capability 2C)
+
+Enabling Opus DTX (`usedtx=1`) suppresses RTP during silence and sends comfort noise, so
+`packetsReceived` flattens while `packetsLost` keeps ticking. The quality path computes
+`loss = packetsLost / (packetsLost + packetsReceived)`, so a silent-but-alive peer reads
+as rising loss and the existing classifier moves through DEGRADED to POOR and raises the
+fallback flag after its hysteresis and consecutive-poor thresholds. This is expected, not
+a bug: DTX is opt-in and default off, the classifier is unchanged, and the exact behavior
+is pinned by `QualityDtxTest` (engine) and `dtx.test.ts` (core) as executable records.
+
+Dead-peer detection is unaffected. `Unreachable` is emitted only from the server
+`ParticipantUnreachable` frame; there is no client RTP-flow liveness timer, so DTX silence
+cannot trip it. `CallSessionQoeTest.highLossSampleUpdatesQualityButNeverEmitsUnreachable`
+proves a high-loss stats sample changes the quality label but never emits `Unreachable`.
+
+An adopter enabling DTX on a lossy or metered link should expect more DEGRADED/POOR quality
+labels during one-way silence. If that is undesirable, leave DTX off (the default) or have
+the domain treat the QoE `fallback` signal with DTX in mind.
