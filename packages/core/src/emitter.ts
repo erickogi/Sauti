@@ -19,6 +19,11 @@ export class Emitter<Events> {
     this.handlers.get(type)?.delete(handler as Listener<unknown>);
   }
 
+  has<K extends keyof Events>(type: K): boolean {
+    const set = this.handlers.get(type);
+    return set !== undefined && set.size > 0;
+  }
+
   emit<K extends keyof Events>(type: K, payload: Events[K]): void {
     const set = this.handlers.get(type);
     if (!set) return;

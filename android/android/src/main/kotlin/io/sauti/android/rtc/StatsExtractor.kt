@@ -11,6 +11,9 @@ object StatsExtractor {
         var jitterMs = 0.0
         var packetsLost = 0.0
         var packetsReceived = 0.0
+        var audioLevel: Double? = null
+        var jitterBufferMs: Double? = null
+        var fractionLost: Double? = null
 
         for (stats in report.statsMap.values) {
             when (stats.type) {
@@ -18,17 +21,31 @@ object StatsExtractor {
                     (stats.members[RTT_KEY] as? Number)?.let { rttMs = it.toDouble() * 1000.0 }
                     (stats.members["jitter"] as? Number)?.let { jitterMs = it.toDouble() * 1000.0 }
                     (stats.members["packetsLost"] as? Number)?.let { packetsLost = it.toDouble() }
+                    (stats.members["fractionLost"] as? Number)?.let { fractionLost = it.toDouble() }
                 }
                 "inbound-rtp" -> {
                     (stats.members["jitter"] as? Number)?.let { jitterMs = it.toDouble() * 1000.0 }
                     (stats.members["packetsLost"] as? Number)?.let { packetsLost = it.toDouble() }
                     (stats.members["packetsReceived"] as? Number)?.let { packetsReceived = it.toDouble() }
+                    (stats.members["audioLevel"] as? Number)?.let { audioLevel = it.toDouble() }
+                    val delay = (stats.members["jitterBufferDelay"] as? Number)?.toDouble()
+                    val count = (stats.members["jitterBufferEmittedCount"] as? Number)?.toDouble()
+                    if (delay != null && count != null && count > 0) {
+                        jitterBufferMs = delay / count * 1000.0
+                    }
                 }
             }
         }
 
         val total = packetsLost + packetsReceived
         val loss = if (total > 0) packetsLost / total else 0.0
-        return StatsSample(rttMs = rttMs, loss = loss, jitterMs = jitterMs)
+        return StatsSample(
+            rttMs = rttMs,
+            loss = loss,
+            jitterMs = jitterMs,
+            audioLevel = audioLevel,
+            jitterBufferMs = jitterBufferMs,
+            fractionLost = fractionLost
+        )
     }
 }

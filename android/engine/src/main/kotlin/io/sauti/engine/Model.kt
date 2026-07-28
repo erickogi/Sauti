@@ -60,5 +60,19 @@ data class IceCandidate(
 data class StatsSample(
     val rttMs: Double,
     val loss: Double,
-    val jitterMs: Double
+    val jitterMs: Double,
+    val audioLevel: Double? = null,
+    val jitterBufferMs: Double? = null,
+    val fractionLost: Double? = null
+)
+
+data class QoeSample(
+    val participantId: String,
+    val rttMs: Double,
+    val loss: Double,
+    val jitterMs: Double,
+    val audioLevel: Double? = null,
+    val jitterBufferMs: Double? = null,
+    val fractionLost: Double? = null,
+    val sampledAt: Long
 )

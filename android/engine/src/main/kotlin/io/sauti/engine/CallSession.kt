@@ -24,7 +24,8 @@ data class EngineConfig(
     val reconnectMaxMs: Long = 30_000,
     val statsIntervalMs: Long = 2_000,
     val now: () -> Long = { System.currentTimeMillis() },
-    val random: () -> Double = { Math.random() }
+    val random: () -> Double = { Math.random() },
+    val onQoe: ((QoeSample) -> Unit)? = null
 )
 
 sealed interface CallEvent {
@@ -333,6 +334,18 @@ class CallSession(
             if (before != null && before != result.label) {
                 emit(CallEvent.QualityChanged(peerId, result.label))
             }
+            config.onQoe?.invoke(
+                QoeSample(
+                    peerId,
+                    sample.rttMs,
+                    sample.loss,
+                    sample.jitterMs,
+                    sample.audioLevel,
+                    sample.jitterBufferMs,
+                    sample.fractionLost,
+                    config.now()
+                )
+            )
         }
     }
 

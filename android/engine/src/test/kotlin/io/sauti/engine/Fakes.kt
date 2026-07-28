@@ -80,6 +80,7 @@ class FakePeerConnection : PeerConnectionPort {
     var remoteDescription: SdpDescription? = null
     val addedCandidates = mutableListOf<IceCandidate>()
     var stats = StatsSample(rttMs = 10.0, loss = 0.0, jitterMs = 5.0)
+    var throwOnStats = false
 
     override suspend fun createOffer(iceRestart: Boolean): SdpDescription {
         createdOffers += 1
@@ -113,7 +114,10 @@ class FakePeerConnection : PeerConnectionPort {
         onNegotiationNeeded?.invoke()
     }
 
-    override suspend fun getStats(): StatsSample = stats
+    override suspend fun getStats(): StatsSample {
+        if (throwOnStats) throw IllegalStateException("stats unavailable")
+        return stats
+    }
 
     override fun close() {
         closed = true

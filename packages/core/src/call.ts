@@ -445,6 +445,17 @@ export class Call implements SautiCall {
           quality: result.label
         });
       }
+      if (this.emitter.has('qoe-sample')) {
+        this.emitter.emit('qoe-sample', {
+          participantId: peerId,
+          rttMs: sample.rttMs,
+          loss: sample.loss,
+          jitterMs: sample.jitterMs,
+          jitterBufferMs: sample.jitterBufferMs,
+          fractionLost: sample.fractionLost,
+          sampledAt: this.runtime.now()
+        });
+      }
       if (result.fallback) anyFallback = true;
     }
     this.store.setFallback(anyFallback);

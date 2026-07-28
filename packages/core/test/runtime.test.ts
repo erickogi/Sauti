@@ -40,6 +40,51 @@ describe('adaptStats', () => {
     expect(sample.rttMs).toBeCloseTo(100);
     expect(sample.loss).toBe(0);
     expect(sample.jitterMs).toBe(0);
+    expect(sample.jitterBufferMs).toBeUndefined();
+    expect(sample.fractionLost).toBeUndefined();
+  });
+
+  it('fills the optional extras when the report carries them', () => {
+    const report = {
+      forEach(cb: (s: Record<string, unknown>) => void) {
+        cb({
+          type: 'inbound-rtp',
+          jitter: 0.01,
+          packetsLost: 1,
+          packetsReceived: 99,
+          jitterBufferDelay: 2,
+          jitterBufferEmittedCount: 100
+        });
+        cb({ type: 'remote-inbound-rtp', currentRoundTripTime: 0.15, fractionLost: 0.05 });
+      }
+    };
+    const sample = adaptStats(report);
+    expect(sample.jitterBufferMs).toBeCloseTo(20);
+    expect(sample.fractionLost).toBe(0.05);
+  });
+
+  it('omits jitterBufferMs when the emitted count is zero', () => {
+    const report = {
+      forEach(cb: (s: Record<string, unknown>) => void) {
+        cb({
+          type: 'inbound-rtp',
+          jitterBufferDelay: 2,
+          jitterBufferEmittedCount: 0
+        });
+      }
+    };
+    const sample = adaptStats(report);
+    expect(sample.jitterBufferMs).toBeUndefined();
+  });
+
+  it('does not read fractionLost off a candidate-pair report', () => {
+    const report = {
+      forEach(cb: (s: Record<string, unknown>) => void) {
+        cb({ type: 'candidate-pair', roundTripTime: 0.1, fractionLost: 0.5 });
+      }
+    };
+    const sample = adaptStats(report);
+    expect(sample.fractionLost).toBeUndefined();
   });
 });
 

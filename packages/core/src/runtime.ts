@@ -44,9 +44,18 @@ export function adaptStats(report: StatsReportLike): StatsSample {
       const received = numeric(stats.packetsReceived) ?? 0;
       const total = lost + received;
       if (total > 0) sample.loss = lost / total;
+      const bufferDelay = numeric(stats.jitterBufferDelay);
+      const bufferCount = numeric(stats.jitterBufferEmittedCount);
+      if (bufferDelay !== undefined && bufferCount !== undefined && bufferCount > 0) {
+        sample.jitterBufferMs = (bufferDelay / bufferCount) * 1000;
+      }
     } else if (stats.type === 'remote-inbound-rtp' || stats.type === 'candidate-pair') {
       const rtt = readRttSeconds(stats);
       if (rtt !== undefined) sample.rttMs = rtt * 1000;
+      if (stats.type === 'remote-inbound-rtp') {
+        const fractionLost = numeric(stats.fractionLost);
+        if (fractionLost !== undefined) sample.fractionLost = fractionLost;
+      }
     }
   });
   return sample;

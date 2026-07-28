@@ -48,5 +48,6 @@ export type {
   IceCandidateLike,
   MediaConstraints,
   RtcConfig,
-  IceServerConfig
+  IceServerConfig,
+  QoeSample
 } from './types.js';

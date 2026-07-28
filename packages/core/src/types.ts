@@ -34,6 +34,18 @@ export interface StatsSample {
   rttMs: number;
   loss: number;
   jitterMs: number;
+  jitterBufferMs?: number;
+  fractionLost?: number;
+}
+
+export interface QoeSample {
+  participantId: string;
+  rttMs: number;
+  loss: number;
+  jitterMs: number;
+  jitterBufferMs?: number;
+  fractionLost?: number;
+  sampledAt: number;
 }
 
 export interface PeerLike {
@@ -149,6 +161,7 @@ export interface SautiEvents {
   reconnected: Record<string, never>;
   'state-changed': { participantId: string; muted: boolean; onHold: boolean };
   'quality-changed': { participantId: string; quality: Quality };
+  'qoe-sample': QoeSample;
   'devices-changed': { devices: DeviceInfo[] };
   error: SautiError;
 }
