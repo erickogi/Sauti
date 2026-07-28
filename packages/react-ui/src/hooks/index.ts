@@ -13,3 +13,5 @@ export {
   type CallStatusKey,
   type CallStatusView
 } from './useCallStatus.js';
+export { ringbackMode, type RingbackMode } from './ringbackMode.js';
+export { useOutgoingRingback, type RingbackOptions } from './useOutgoingRingback.js';

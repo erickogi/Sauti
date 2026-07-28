@@ -49,11 +49,22 @@ export {
   useAudioDevices,
   useCallStatus,
   deriveStatusKey,
+  ringbackMode,
+  useOutgoingRingback,
   type RosterEntry,
   type MuteToggle,
   type AudioDevicesState,
   type CallStatusKey,
-  type CallStatusView
+  type CallStatusView,
+  type RingbackMode,
+  type RingbackOptions
 } from './hooks/index.js';
+
+export {
+  createRingbackPort,
+  DEFAULT_RINGBACK_TONE,
+  type RingbackPort,
+  type RingbackToneOptions
+} from './audio/ringbackPort.js';
 
 export { useSautiCall, type SautiCallBinding } from '@sauti/react';
