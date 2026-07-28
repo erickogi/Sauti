@@ -109,3 +109,27 @@ proves a high-loss stats sample changes the quality label but never emits `Unrea
 An adopter enabling DTX on a lossy or metered link should expect more DEGRADED/POOR quality
 labels during one-way silence. If that is undesirable, leave DTX off (the default) or have
 the domain treat the QoE `fallback` signal with DTX in mind.
+
+## Wake-push contract constants and parser style (Wave 3, capability 3A)
+
+The call-invite wake push (Wave 3) gets a frozen kind and version, deliberately independent of the
+WebSocket `PROTOCOL_VERSION`: `WAKE_PUSH_KIND = "io.sauti.wake.call"` and `WAKE_PUSH_VERSION = 1`. A
+push can reach an app build that never opened the socket, and the push schema must be able to evolve
+without a WS-frame break, so the two version lines are separate. The `kind` literal is frozen here so
+a callee can distinguish a newer schema from garbage before touching a socket.
+
+The wake payload lives in `@sauti/protocol/src/wakePush.ts` (a new file, one added `index.ts`
+re-export, no existing type changed) and is validated with zod. zod is already a `@sauti/protocol`
+dependency (used by `frames.ts`), so this adds no dependency and keeps the validation style consistent
+with the other wire types in the package. `decodeWakePushData` is a tolerant reverse of the encoder;
+its reason ordering is fixed: kind missing-or-mismatched -> `wrong-kind`; kind ok but `v` missing or
+not 1 -> `unsupported-version`; kind and `v` ok but a required field missing/non-numeric ->
+`malformed`. It emits `payload.v` as the numeric `WAKE_PUSH_VERSION`, not the string form carried in
+the FCM data map.
+
+The payload metadata is a flat `Record<string,string>` (FCM data messages are string-to-string and it
+maps 1:1 onto Wave 1 `SautiIncomingCall`'s `Map<String,String>`), narrower than `model.ts`'s
+`Record<string,Json>` by design. Metadata keys are namespaced under a reserved `meta.` prefix in the
+data map so they cannot collide with the fixed top-level keys, and `WAKE_PUSH_JOIN_HINT_KEY` is the
+reserved key that carries `joinHint` into the callee metadata. `callerDisplayHint` is an opaque
+host-supplied label; the library never derives, logs, or inspects it.
