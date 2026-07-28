@@ -164,6 +164,30 @@ class CallSessionQoeTest {
     }
 
     @Test
+    fun highLossSampleUpdatesQualityButNeverEmitsUnreachable() = runTest {
+        lateinit var h: QoeHarness
+        h = buildQoeHarness(backgroundScope) { h.samples.add(it) }
+        val events = mutableListOf<CallEvent>()
+        backgroundScope.launch { h.session.eventFlow.collect { events.add(it) } }
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.deliverReady("b")
+        runCurrent()
+        h.rtc.created.first().stats = StatsSample(rttMs = 20.0, loss = 0.3, jitterMs = 10.0)
+
+        h.session.pollQuality()
+        h.session.pollQuality()
+        runCurrent()
+
+        assertEquals(
+            Quality.POOR,
+            h.session.state.value.participants.first { it.participantId == "b" }.quality
+        )
+        assertTrue(events.any { it is CallEvent.QualityChanged && it.quality == Quality.POOR })
+        assertTrue(events.none { it is CallEvent.Unreachable })
+    }
+
+    @Test
     fun classificationIsUnchangedWhenExtrasArePresent() = runTest {
         lateinit var h: QoeHarness
         h = buildQoeHarness(backgroundScope) { h.samples.add(it) }

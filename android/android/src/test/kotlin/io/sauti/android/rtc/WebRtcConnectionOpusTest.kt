@@ -37,9 +37,25 @@ class WebRtcConnectionOpusTest {
     }
 
     @Test
-    fun fecConfigNeverEmitsDtxBecauseTwoBWiresDtxFalse() {
-        val connection = WebRtcConnection("sauti-stream", OpusConfig(fec = true, dtx = true))
+    fun defaultConnectionNeverEmitsDtx() {
+        val connection = WebRtcConnection("sauti-stream")
         assertFalse(connection.applyOpus(offerSdp).contains("usedtx"))
+        assertFalse(connection.applyOpus(answerSdp).contains("usedtx"))
+    }
+
+    @Test
+    fun dtxConfigMungesBothCreatedOfferAndAnswerSymmetrically() {
+        val connection = WebRtcConnection("sauti-stream", OpusConfig(dtx = true))
+        assertTrue(connection.applyOpus(offerSdp).contains("a=fmtp:111 minptime=10;usedtx=1"))
+        assertTrue(connection.applyOpus(answerSdp).contains("a=fmtp:111 usedtx=1"))
+    }
+
+    @Test
+    fun dtxAndFecEmitBothTokensOnSingleFmtpLine() {
+        val connection = WebRtcConnection("sauti-stream", OpusConfig(fec = true, dtx = true))
+        assertTrue(connection.applyOpus(offerSdp).contains("a=fmtp:111 minptime=10;useinbandfec=1;usedtx=1"))
+        val answer = connection.applyOpus(answerSdp)
+        assertTrue(answer.contains("a=fmtp:111 useinbandfec=1;usedtx=1"))
     }
 
     @Test

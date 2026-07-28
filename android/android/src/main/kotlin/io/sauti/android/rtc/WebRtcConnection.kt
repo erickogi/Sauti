@@ -22,7 +22,7 @@ class WebRtcConnection(
     private val opus: OpusConfig = OpusConfig()
 ) : PeerConnectionPort, PeerConnection.Observer {
 
-    internal fun applyOpus(sdp: String): String = transformOpusSdp(sdp, dtx = false, fec = opus.fec)
+    internal fun applyOpus(sdp: String): String = transformOpusSdp(sdp, dtx = opus.dtx, fec = opus.fec)
 
     lateinit var connection: PeerConnection
 

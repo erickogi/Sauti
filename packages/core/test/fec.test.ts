@@ -84,17 +84,4 @@ describe('opus fec negotiation wiring [FEC]', () => {
     expect(storedRemote!.sdp).toBe(OPUS_OFFER);
     expect(storedRemote!.sdp).not.toContain('useinbandfec');
   });
-
-  it('does not honor dtx in 2B wiring even when it is set [FEC-05]', async () => {
-    const h = opusRuntime();
-    const conn = await connect(
-      readyFrame({ selfId: 'B', peers: [participant('A')] }),
-      { opus: { dtx: true } },
-      h
-    );
-    await flush();
-    const offer = conn.socket.frames().find((f) => f.type === 'offer');
-    expect(offer!.sdp).toBe(OPUS_OFFER);
-    expect(offer!.sdp).not.toContain('usedtx');
-  });
 });

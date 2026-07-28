@@ -79,7 +79,10 @@ export class Peer {
     this.makingOffer = true;
     try {
       const offer = await this.pc.createOffer();
-      const sdp = transformOpus(offer.sdp ?? '', { fec: this.opus.fec ?? false, dtx: false });
+      const sdp = transformOpus(offer.sdp ?? '', {
+        fec: this.opus.fec ?? false,
+        dtx: this.opus.dtx ?? false
+      });
       await this.pc.setLocalDescription({ type: 'offer', sdp });
       this.signal.send({
         v: PROTOCOL_VERSION,
@@ -103,7 +106,10 @@ export class Peer {
     }
     await this.pc.setRemoteDescription({ type: 'offer', sdp });
     const answer = await this.pc.createAnswer();
-    const local = transformOpus(answer.sdp ?? '', { fec: this.opus.fec ?? false, dtx: false });
+    const local = transformOpus(answer.sdp ?? '', {
+      fec: this.opus.fec ?? false,
+      dtx: this.opus.dtx ?? false
+    });
     await this.pc.setLocalDescription({ type: 'answer', sdp: local });
     this.signal.send({
       v: PROTOCOL_VERSION,
