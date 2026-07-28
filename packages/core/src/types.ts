@@ -92,7 +92,14 @@ export interface DeviceInfo {
 }
 
 export interface MediaConstraints {
-  audio: boolean | { deviceId?: string };
+  audio:
+    | boolean
+    | {
+        deviceId?: string;
+        echoCancellation?: boolean;
+        noiseSuppression?: boolean;
+        autoGainControl?: boolean;
+      };
 }
 
 export interface IceServerConfig {
@@ -151,6 +158,11 @@ export interface SautiOptions {
   reconnectBaseMs?: number;
   reconnectMaxMs?: number;
   statsIntervalMs?: number;
+  audioProcessing?: {
+    echoCancellation?: boolean;
+    noiseSuppression?: boolean;
+    autoGainControl?: boolean;
+  };
 }
 
 export interface SautiEvents {

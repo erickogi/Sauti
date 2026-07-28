@@ -19,6 +19,7 @@ import type {
   CallSnapshot,
   DeviceInfo,
   JoinOptions,
+  MediaConstraints,
   SautiEvents,
   SautiOptions,
   SautiRuntime,
@@ -62,6 +63,7 @@ export class Call implements SautiCall {
   private readonly reconnectBaseMs: number;
   private readonly reconnectMaxMs: number;
   private readonly statsIntervalMs: number;
+  private readonly audioProcessing: SautiOptions['audioProcessing'];
 
   private signaling: SignalingClient | null = null;
   private mesh: Mesh | null = null;
@@ -93,6 +95,7 @@ export class Call implements SautiCall {
     this.reconnectBaseMs = options.reconnectBaseMs ?? 500;
     this.reconnectMaxMs = options.reconnectMaxMs ?? this.graceMs;
     this.statsIntervalMs = options.statsIntervalMs ?? 2000;
+    this.audioProcessing = options.audioProcessing;
     this.store = new CallStore(() => this.runtime.now());
     this.sinks = new AudioSinkManager(
       this.runtime,
@@ -127,12 +130,28 @@ export class Call implements SautiCall {
     this.emitter.off(type, handler);
   }
 
+  private micAudioConstraint(deviceId?: string): MediaConstraints['audio'] {
+    const ap = this.audioProcessing;
+    if (!ap) return deviceId ? { deviceId } : true;
+    const obj: {
+      deviceId?: string;
+      echoCancellation?: boolean;
+      noiseSuppression?: boolean;
+      autoGainControl?: boolean;
+    } = {};
+    if (deviceId !== undefined) obj.deviceId = deviceId;
+    if (ap.echoCancellation !== undefined) obj.echoCancellation = ap.echoCancellation;
+    if (ap.noiseSuppression !== undefined) obj.noiseSuppression = ap.noiseSuppression;
+    if (ap.autoGainControl !== undefined) obj.autoGainControl = ap.autoGainControl;
+    return obj;
+  }
+
   async acquireMic(deviceId?: string): Promise<void> {
     if (this.localTrack) return;
     let stream: StreamLike;
     try {
       stream = await this.runtime.getUserMedia({
-        audio: deviceId ? { deviceId } : true
+        audio: this.micAudioConstraint(deviceId)
       });
     } catch (reason) {
       throw mapMicError(reason);
@@ -162,7 +181,9 @@ export class Call implements SautiCall {
   }
 
   async selectInputDevice(deviceId: string): Promise<void> {
-    const stream = await this.runtime.getUserMedia({ audio: { deviceId } });
+    const stream = await this.runtime.getUserMedia({
+      audio: this.micAudioConstraint(deviceId)
+    });
     const track = stream.getAudioTracks()[0];
     if (!track) throw mapMicError({ name: 'NotFoundError' });
     track.enabled = !(this.localMuted || this.localOnHold);

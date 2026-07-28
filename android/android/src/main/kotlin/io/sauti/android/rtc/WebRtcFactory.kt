@@ -1,10 +1,12 @@
 package io.sauti.android.rtc
 
 import android.content.Context
+import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.IceServer
 import io.sauti.engine.LocalMediaController
 import io.sauti.engine.PeerConnectionPort
 import io.sauti.engine.RtcFactory
+import io.sauti.engine.audioConstraints
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.MediaConstraints
@@ -13,7 +15,18 @@ import org.webrtc.PeerConnectionFactory
 import org.webrtc.audio.JavaAudioDeviceModule
 import org.webrtc.PeerConnection.IceServer as WebRtcIceServer
 
-class WebRtcFactory(context: Context) : RtcFactory, LocalMediaController {
+internal fun buildAudioConstraints(config: AudioProcessingConfig): MediaConstraints {
+    val constraints = MediaConstraints()
+    audioConstraints(config).forEach { pair ->
+        constraints.optional.add(MediaConstraints.KeyValuePair(pair.first, pair.second))
+    }
+    return constraints
+}
+
+class WebRtcFactory(
+    context: Context,
+    audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
+) : RtcFactory, LocalMediaController {
 
     private val appContext = context.applicationContext
     private val streamId = "sauti-stream"
@@ -28,13 +41,13 @@ class WebRtcFactory(context: Context) : RtcFactory, LocalMediaController {
                 .createInitializationOptions()
         )
         val audioModule = JavaAudioDeviceModule.builder(appContext)
-            .setUseHardwareAcousticEchoCanceler(true)
-            .setUseHardwareNoiseSuppressor(true)
+            .setUseHardwareAcousticEchoCanceler(audioProcessing.hardwareAec)
+            .setUseHardwareNoiseSuppressor(audioProcessing.hardwareNs)
             .createAudioDeviceModule()
         factory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(audioModule)
             .createPeerConnectionFactory()
-        audioSource = factory.createAudioSource(MediaConstraints())
+        audioSource = factory.createAudioSource(buildAudioConstraints(audioProcessing))
         localAudioTrack = factory.createAudioTrack("sauti-audio", audioSource)
         localAudioTrack.setEnabled(true)
     }

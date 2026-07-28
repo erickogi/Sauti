@@ -3,6 +3,7 @@ package io.sauti.android
 import android.content.Context
 import io.sauti.android.rtc.WebRtcFactory
 import io.sauti.android.signaling.OkHttpSignalingFactory
+import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.CallEvent
 import io.sauti.engine.CallSession
 import io.sauti.engine.CallState
@@ -26,9 +27,10 @@ interface CallEngine {
 class WebRtcCallEngine(
     context: Context,
     engineConfig: EngineConfig,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
 ) : CallEngine {
-    private val rtcFactory = WebRtcFactory(context.applicationContext)
+    private val rtcFactory = WebRtcFactory(context.applicationContext, audioProcessing)
     private val session = CallSession(
         rtcFactory = rtcFactory,
         transportFactory = OkHttpSignalingFactory(),
