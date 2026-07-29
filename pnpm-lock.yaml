@@ -133,6 +133,22 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@20.19.43)(jsdom@25.0.1)
 
+  packages/push:
+    dependencies:
+      '@sauti/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^2.1.4
+        version: 2.1.9(vitest@2.1.9(@types/node@20.19.43)(jsdom@25.0.1))
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.19.43)(jsdom@25.0.1)
+
   packages/react:
     dependencies:
       '@sauti/core':
