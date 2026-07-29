@@ -1,6 +1,9 @@
 package io.sauti.android
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorManager
+import android.os.PowerManager
 import androidx.test.core.app.ApplicationProvider
 import io.sauti.android.audio.AudioController
 import io.sauti.android.audio.AudioDevice
@@ -27,9 +30,12 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSensor
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private class FakeCallEngine : CallEngine {
     private val stateFlow = MutableStateFlow(CallState())
@@ -104,6 +110,7 @@ class SautiClientTest {
         onConnectivity: ((NetworkEventKind) -> Unit) -> Unit = {},
         onTelephony: ((Boolean) -> Unit) -> Unit = {},
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
+        enableProximity: Boolean = false,
         scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)
     ): SautiClient = SautiClient(
         context = context,
@@ -113,8 +120,52 @@ class SautiClientTest {
         resumeStore = resumeStore,
         telephonyFactory = { _, cb -> onTelephony(cb); FakeStartable() },
         connectivityFactory = { _, cb -> onConnectivity(cb); FakeStartable() },
-        interruptionPolicy = interruptionPolicy
+        interruptionPolicy = interruptionPolicy,
+        enableProximity = enableProximity
     )
+
+    private val sensorManager: SensorManager
+        get() = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    private val joinRequest = SautiJoinRequest(
+        url = "wss://x",
+        token = "t",
+        roomId = "r",
+        participantId = "p",
+        slotGeneration = 1,
+        displayTitle = "Call"
+    )
+
+    private fun installProximitySensor() {
+        val sensor = ShadowSensor.newInstance(Sensor.TYPE_PROXIMITY)
+        shadowOf(sensor).setMaximumRange(5f)
+        shadowOf(sensorManager).addSensor(Sensor.TYPE_PROXIMITY, sensor)
+        shadowOf(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .setIsWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, true)
+    }
+
+    @Test
+    fun proximityDisabledByDefaultRegistersNoSensor() = runBlocking {
+        installProximitySensor()
+        val client = build()
+
+        client.join(joinRequest)
+
+        assertTrue(shadowOf(sensorManager).listeners.isEmpty())
+        client.leave()
+    }
+
+    @Test
+    fun proximityEnabledRegistersSensorOnJoinAndUnregistersOnLeave() = runBlocking {
+        installProximitySensor()
+        val client = build(enableProximity = true)
+
+        client.join(joinRequest)
+        assertTrue(shadowOf(sensorManager).listeners.isNotEmpty())
+
+        client.leave()
+        assertTrue(shadowOf(sensorManager).listeners.isEmpty())
+    }
 
     @Test
     fun audioInterruptionMutesEngineAndRestoresOnRegain() {

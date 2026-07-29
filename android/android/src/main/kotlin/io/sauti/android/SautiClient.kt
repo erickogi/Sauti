@@ -10,6 +10,7 @@ import io.sauti.android.net.NetworkChangeGate
 import io.sauti.android.net.NetworkEventKind
 import io.sauti.android.persistence.ResumeRecord
 import io.sauti.android.persistence.ResumeStore
+import io.sauti.android.proximity.ProximityController
 import io.sauti.android.service.CallForegroundService
 import io.sauti.android.service.CallPresence
 import io.sauti.android.telephony.InterruptionPolicy
@@ -47,7 +48,10 @@ class SautiClient internal constructor(
     telephonyFactory: (Context, (Boolean) -> Unit) -> Startable,
     connectivityFactory: (Context, (NetworkEventKind) -> Unit) -> Startable,
     connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
-    private val interruptionPolicy: InterruptionPolicy = InterruptionPolicy()
+    private val interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
+    enableProximity: Boolean = false,
+    proximityFactory: (Context, CoroutineScope, StateFlow<CallState>, StateFlow<AudioDevice>) -> ProximityController =
+        { ctx, sc, state, device -> ProximityController(ctx, sc, state, device) }
 ) {
     private val appContext = context.applicationContext
 
@@ -62,6 +66,13 @@ class SautiClient internal constructor(
     private val connectivity = connectivityFactory(appContext) { kind ->
         networkGate.onEvent(kind)
     }
+
+    private val proximity: ProximityController? =
+        if (enableProximity) {
+            proximityFactory(appContext, scope, engine.state, audio.currentDevice)
+        } else {
+            null
+        }
 
     private var userMuted = false
     private var userHeld = false
@@ -89,7 +100,8 @@ class SautiClient internal constructor(
         engineConfig: EngineConfig = EngineConfig(),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
         connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
-        interruptionPolicy: InterruptionPolicy = InterruptionPolicy()
+        interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
+        enableProximity: Boolean = false
     ) : this(
         context = context,
         scope = scope,
@@ -99,7 +111,8 @@ class SautiClient internal constructor(
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
         connectivityPolicy = connectivityPolicy,
-        interruptionPolicy = interruptionPolicy
+        interruptionPolicy = interruptionPolicy,
+        enableProximity = enableProximity
     )
 
     suspend fun join(request: SautiJoinRequest) {
@@ -107,6 +120,7 @@ class SautiClient internal constructor(
         audio.start()
         telephony.start()
         connectivity.start()
+        proximity?.start()
         resumeStore.save(
             ResumeRecord(
                 roomId = request.roomId,
@@ -148,6 +162,7 @@ class SautiClient internal constructor(
 
     fun leave() {
         engine.leave()
+        proximity?.stop()
         telephony.stop()
         connectivity.stop()
         audio.stop()
