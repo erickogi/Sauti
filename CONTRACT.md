@@ -219,6 +219,69 @@ idioms (an event emitter / a Kotlin Flow):
 - Events mirror the server frames: joined, left, unreachable, state-changed,
   reconnecting, reconnected, quality-changed.
 
+## Wake-push payload (io.sauti.wake.call v1)
+
+A call invite that has to wake a device rides in on a provider push (FCM data
+message, APNs, or any string-map transport). The payload is provider-agnostic and
+lives in `@sauti/protocol` as a flat `Record<string, string>` so it maps one to one
+onto an FCM data message and onto the Wave 1 Kotlin `SautiIncomingCall`
+`Map<String, String>`.
+
+```
+WakePushPayload {
+  kind: 'io.sauti.wake.call'
+  v: 1                              versions independently of PROTOCOL_VERSION
+  callId: string                   opaque
+  roomId: string                   opaque, the room the callee joins
+  issuedAt: number                 epoch ms
+  ttlSeconds: number               invite lifetime in seconds
+  callerDisplayHint?: string       opaque host label; never inspected or logged
+  joinHint?: string                opaque hint the callee may fold into metadata
+  metadata?: Record<string,string> host-owned, opaque
+}
+```
+
+`WAKE_PUSH_KIND` and `WAKE_PUSH_VERSION` are frozen constants that version this
+payload on their own line, independent of `PROTOCOL_VERSION`. A future breaking
+change to the wake-push shape bumps `WAKE_PUSH_VERSION` without touching the wire
+protocol version, and the reverse.
+
+`encodeWakePushData` emits fixed top-level string keys (`kind`, `v`, `callId`,
+`roomId`, `issuedAt`, `ttlSeconds`, and `callerDisplayHint` / `joinHint` when
+present). Every `metadata` entry is emitted under the reserved `meta.` prefix as
+`meta.<k>` so host keys can never collide with a fixed key. Every emitted value is a
+string.
+
+`decodeWakePushData` is a tolerant reverse. It returns a discriminated result and
+never throws. Reason ordering is fixed: a missing or mismatched `kind` yields
+`wrong-kind`; a `kind` that matches but a `v` that is not `1` yields
+`unsupported-version`, a forward-compatibility signal rather than a failure; a
+matching `kind` and `v` with a missing or non-coercible required field yields
+`malformed`. On success it coerces `issuedAt` and `ttlSeconds` to numbers, emits `v`
+as the numeric version, collects every `meta.<k>` back into `metadata`, preserves
+`callerDisplayHint` and `joinHint` when present, and ignores unknown top-level keys.
+
+`WAKE_PUSH_JOIN_HINT_KEY` (`sauti.joinHint`) is the reserved metadata key a callee
+uses when it folds `joinHint` into `SautiIncomingCall.metadata`.
+
+`isWakePushExpired(p, now)` is `now > p.issuedAt + p.ttlSeconds * 1000`. The exact
+boundary is not expired; one millisecond past is; a `ttlSeconds` of zero is expired
+for any moment after `issuedAt`; a clock reading before `issuedAt` is not expired.
+
+Callee mapping onto `SautiIncomingCall`:
+
+| WakePushPayload    | SautiIncomingCall |
+| ------------------ | ----------------- |
+| callId             | callId            |
+| roomId             | roomId            |
+| callerDisplayHint  | callerName        |
+| joinHint           | metadata (under WAKE_PUSH_JOIN_HINT_KEY) |
+| metadata           | metadata          |
+
+`callerDisplayHint` is an opaque host label the library never inspects or logs. A
+data-only push is not encrypted at rest on the device, so the payload carries only
+opaque ids and neutral hints, never host-domain identity.
+
 ## Purity
 
 No package source may contain `driver`, `passenger`, `trip`, or `rider`
