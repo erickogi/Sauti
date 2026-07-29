@@ -7,6 +7,8 @@ import io.sauti.android.audio.AudioDevice
 import io.sauti.android.net.NetworkEventKind
 import io.sauti.android.persistence.ResumeRecord
 import io.sauti.android.persistence.ResumeStore
+import io.sauti.android.telephony.InterruptionMode
+import io.sauti.android.telephony.InterruptionPolicy
 import io.sauti.engine.CallEvent
 import io.sauti.engine.CallPhase
 import io.sauti.engine.CallState
@@ -36,6 +38,7 @@ private class FakeCallEngine : CallEngine {
     override val events: SharedFlow<CallEvent> get() = eventsFlow.asSharedFlow()
 
     val muteCalls = mutableListOf<Boolean>()
+    val holdCalls = mutableListOf<Boolean>()
     var networkChanges = 0
     var leaveCount = 0
 
@@ -48,7 +51,10 @@ private class FakeCallEngine : CallEngine {
         muteCalls += muted
     }
 
-    override fun setHold(onHold: Boolean) = Unit
+    override fun setHold(onHold: Boolean) {
+        holdCalls += onHold
+    }
+
     override fun onNetworkChanged() {
         networkChanges += 1
     }
@@ -97,6 +103,7 @@ class SautiClientTest {
         resumeStore: ResumeStore = ResumeStore(context),
         onConnectivity: ((NetworkEventKind) -> Unit) -> Unit = {},
         onTelephony: ((Boolean) -> Unit) -> Unit = {},
+        interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)
     ): SautiClient = SautiClient(
         context = context,
@@ -105,7 +112,8 @@ class SautiClientTest {
         engine = engine,
         resumeStore = resumeStore,
         telephonyFactory = { _, cb -> onTelephony(cb); FakeStartable() },
-        connectivityFactory = { _, cb -> onConnectivity(cb); FakeStartable() }
+        connectivityFactory = { _, cb -> onConnectivity(cb); FakeStartable() },
+        interruptionPolicy = interruptionPolicy
     )
 
     @Test
@@ -132,6 +140,40 @@ class SautiClientTest {
         audio.onInterrupted?.invoke(false)
 
         assertEquals(true, engine.muteCalls.last())
+    }
+
+    @Test
+    fun defaultPolicyInterruptionMutesOnlyAndNeverHolds() {
+        val engine = FakeCallEngine()
+        val audio = FakeAudioController()
+        build(engine = engine, audio = audio)
+
+        audio.onInterrupted?.invoke(true)
+        audio.onInterrupted?.invoke(false)
+
+        assertEquals(listOf(true, false), engine.muteCalls)
+        assertEquals(emptyList(), engine.holdCalls)
+    }
+
+    @Test
+    fun holdPolicyInterruptionMutesAndHoldsThenRestoresIntent() {
+        val engine = FakeCallEngine()
+        val audio = FakeAudioController()
+        val client = build(
+            engine = engine,
+            audio = audio,
+            interruptionPolicy = InterruptionPolicy(InterruptionMode.Hold)
+        )
+        client.setMuted(true)
+        client.setHold(true)
+
+        audio.onInterrupted?.invoke(true)
+        assertEquals(true, engine.muteCalls.last())
+        assertEquals(true, engine.holdCalls.last())
+
+        audio.onInterrupted?.invoke(false)
+        assertEquals(true, engine.muteCalls.last())
+        assertEquals(true, engine.holdCalls.last())
     }
 
     @Test

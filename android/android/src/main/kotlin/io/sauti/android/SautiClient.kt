@@ -12,7 +12,10 @@ import io.sauti.android.persistence.ResumeRecord
 import io.sauti.android.persistence.ResumeStore
 import io.sauti.android.service.CallForegroundService
 import io.sauti.android.service.CallPresence
+import io.sauti.android.telephony.InterruptionPolicy
+import io.sauti.android.telephony.InterruptionReducer
 import io.sauti.android.telephony.TelephonyWatcher
+import io.sauti.android.telephony.UserAudioIntent
 import io.sauti.engine.CallEvent
 import io.sauti.engine.CallState
 import io.sauti.engine.EngineConfig
@@ -43,7 +46,8 @@ class SautiClient internal constructor(
     private val resumeStore: ResumeStore,
     telephonyFactory: (Context, (Boolean) -> Unit) -> Startable,
     connectivityFactory: (Context, (NetworkEventKind) -> Unit) -> Startable,
-    connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy()
+    connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
+    private val interruptionPolicy: InterruptionPolicy = InterruptionPolicy()
 ) {
     private val appContext = context.applicationContext
 
@@ -60,6 +64,7 @@ class SautiClient internal constructor(
     }
 
     private var userMuted = false
+    private var userHeld = false
 
     val state: StateFlow<CallState> get() = engine.state
     val events: SharedFlow<CallEvent> get() = engine.events
@@ -69,7 +74,13 @@ class SautiClient internal constructor(
 
     init {
         audio.onInterrupted = { active ->
-            if (active) engine.setMuted(true) else engine.setMuted(userMuted)
+            val effect = InterruptionReducer.reduce(
+                active,
+                UserAudioIntent(userMuted, userHeld),
+                interruptionPolicy
+            )
+            engine.setMuted(effect.muted)
+            effect.onHold?.let { engine.setHold(it) }
         }
     }
 
@@ -77,7 +88,8 @@ class SautiClient internal constructor(
         context: Context,
         engineConfig: EngineConfig = EngineConfig(),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
-        connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy()
+        connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
+        interruptionPolicy: InterruptionPolicy = InterruptionPolicy()
     ) : this(
         context = context,
         scope = scope,
@@ -86,7 +98,8 @@ class SautiClient internal constructor(
         resumeStore = ResumeStore(context.applicationContext),
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
-        connectivityPolicy = connectivityPolicy
+        connectivityPolicy = connectivityPolicy,
+        interruptionPolicy = interruptionPolicy
     )
 
     suspend fun join(request: SautiJoinRequest) {
@@ -126,7 +139,10 @@ class SautiClient internal constructor(
         engine.setMuted(muted)
     }
 
-    fun setHold(onHold: Boolean) = engine.setHold(onHold)
+    fun setHold(onHold: Boolean) {
+        userHeld = onHold
+        engine.setHold(onHold)
+    }
 
     fun selectDevice(device: AudioDevice) = audio.selectDevice(device)
 
