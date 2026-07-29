@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.sauti.android.audio.AudioController
 import io.sauti.android.audio.AudioDevice
+import io.sauti.android.net.NetworkEventKind
 import io.sauti.android.persistence.ResumeRecord
 import io.sauti.android.persistence.ResumeStore
 import io.sauti.engine.CallEvent
+import io.sauti.engine.CallPhase
 import io.sauti.engine.CallState
 import io.sauti.engine.JoinConfig
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +38,10 @@ private class FakeCallEngine : CallEngine {
     val muteCalls = mutableListOf<Boolean>()
     var networkChanges = 0
     var leaveCount = 0
+
+    fun setPhase(phase: CallPhase) {
+        stateFlow.value = stateFlow.value.copy(phase = phase)
+    }
 
     override suspend fun join(config: JoinConfig) = Unit
     override fun setMuted(muted: Boolean) {
@@ -89,7 +95,7 @@ class SautiClientTest {
         engine: FakeCallEngine = FakeCallEngine(),
         audio: FakeAudioController = FakeAudioController(),
         resumeStore: ResumeStore = ResumeStore(context),
-        onConnectivity: (() -> Unit) -> Unit = {},
+        onConnectivity: ((NetworkEventKind) -> Unit) -> Unit = {},
         onTelephony: ((Boolean) -> Unit) -> Unit = {},
         scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)
     ): SautiClient = SautiClient(
@@ -129,13 +135,24 @@ class SautiClientTest {
     }
 
     @Test
-    fun connectivityCallbackDrivesEngineNetworkChange() {
+    fun connectivityCallbackDrivesEngineNetworkChangeWhenConnected() {
         val engine = FakeCallEngine()
-        var callback: (() -> Unit)? = null
+        engine.setPhase(CallPhase.CONNECTED)
+        var callback: ((NetworkEventKind) -> Unit)? = null
         build(engine = engine, onConnectivity = { callback = it })
 
-        callback?.invoke()
+        callback?.invoke(NetworkEventKind.Available)
         assertEquals(1, engine.networkChanges)
+    }
+
+    @Test
+    fun connectivityCallbackIsNoOpBeforeConnected() {
+        val engine = FakeCallEngine()
+        var callback: ((NetworkEventKind) -> Unit)? = null
+        build(engine = engine, onConnectivity = { callback = it })
+
+        callback?.invoke(NetworkEventKind.Available)
+        assertEquals(0, engine.networkChanges)
     }
 
     @Test

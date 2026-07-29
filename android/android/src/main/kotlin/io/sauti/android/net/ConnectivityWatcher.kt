@@ -10,7 +10,7 @@ import io.sauti.android.Startable
 
 class ConnectivityWatcher(
     context: Context,
-    private val onNetworkChanged: () -> Unit
+    private val onNetworkChanged: (NetworkEventKind) -> Unit
 ) : Startable {
     private val appContext = context.applicationContext
     private val connectivityManager =
@@ -38,11 +38,11 @@ class ConnectivityWatcher(
             .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                onNetworkChanged()
+                onNetworkChanged(NetworkEventKind.Available)
             }
 
             override fun onLost(network: Network) {
-                onNetworkChanged()
+                onNetworkChanged(NetworkEventKind.Lost)
             }
         }
         modernCallback = callback
@@ -52,11 +52,11 @@ class ConnectivityWatcher(
     private fun startLegacy() {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                onNetworkChanged()
+                onNetworkChanged(NetworkEventKind.Available)
             }
 
             override fun onLost(network: Network) {
-                onNetworkChanged()
+                onNetworkChanged(NetworkEventKind.Lost)
             }
         }
         modernCallback = callback

@@ -4,7 +4,10 @@ import android.content.Context
 import io.sauti.android.audio.AudioDevice
 import io.sauti.android.audio.AudioController
 import io.sauti.android.audio.AudioSessionCoordinator
+import io.sauti.android.net.ConnectivityPolicy
 import io.sauti.android.net.ConnectivityWatcher
+import io.sauti.android.net.NetworkChangeGate
+import io.sauti.android.net.NetworkEventKind
 import io.sauti.android.persistence.ResumeRecord
 import io.sauti.android.persistence.ResumeStore
 import io.sauti.android.service.CallForegroundService
@@ -39,15 +42,21 @@ class SautiClient internal constructor(
     private val engine: CallEngine,
     private val resumeStore: ResumeStore,
     telephonyFactory: (Context, (Boolean) -> Unit) -> Startable,
-    connectivityFactory: (Context, () -> Unit) -> Startable
+    connectivityFactory: (Context, (NetworkEventKind) -> Unit) -> Startable,
+    connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy()
 ) {
     private val appContext = context.applicationContext
 
     private val telephony = telephonyFactory(appContext) { active ->
         audio.forceInterruption(active)
     }
-    private val connectivity = connectivityFactory(appContext) {
-        engine.onNetworkChanged()
+    private val networkGate = NetworkChangeGate(
+        policy = connectivityPolicy,
+        phase = { engine.state.value.phase },
+        onRestart = { engine.onNetworkChanged() }
+    )
+    private val connectivity = connectivityFactory(appContext) { kind ->
+        networkGate.onEvent(kind)
     }
 
     private var userMuted = false
@@ -67,7 +76,8 @@ class SautiClient internal constructor(
     constructor(
         context: Context,
         engineConfig: EngineConfig = EngineConfig(),
-        scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+        scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
+        connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy()
     ) : this(
         context = context,
         scope = scope,
@@ -75,7 +85,8 @@ class SautiClient internal constructor(
         engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope),
         resumeStore = ResumeStore(context.applicationContext),
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
-        connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) }
+        connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
+        connectivityPolicy = connectivityPolicy
     )
 
     suspend fun join(request: SautiJoinRequest) {
