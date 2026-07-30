@@ -13,6 +13,7 @@ export { ParticipantTile } from './components/ParticipantTile.js';
 export { AudioDevicePicker } from './components/AudioDevicePicker.js';
 export { AudioUnlockPrompt } from './components/AudioUnlockPrompt.js';
 export { WeakConnectionBanner } from './components/WeakConnectionBanner.js';
+export { MinimizedCall, type MinimizedCallProps } from './components/MinimizedCall.js';
 
 export {
   SautiThemeProvider,

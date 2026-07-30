@@ -23,6 +23,7 @@ export interface SautiLabels {
   participantsHeading: string;
   microphoneLabel: string;
   microphoneDefault: string;
+  returnToCall: string;
 }
 
 export const defaultLabels: SautiLabels = {
@@ -45,7 +46,8 @@ export const defaultLabels: SautiLabels = {
   weakConnectionBody: 'The connection is unstable.',
   participantsHeading: 'Participants',
   microphoneLabel: 'Microphone',
-  microphoneDefault: 'Default'
+  microphoneDefault: 'Default',
+  returnToCall: 'Return to call'
 };
 
 export function resolveLabels(overrides?: Partial<SautiLabels>): SautiLabels {
