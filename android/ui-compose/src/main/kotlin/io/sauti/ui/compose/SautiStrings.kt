@@ -28,7 +28,8 @@ data class SautiStrings(
     val onHold: String = "On hold",
     val incomingCallTitle: String = "Incoming call",
     val accept: String = "Accept",
-    val decline: String = "Decline"
+    val decline: String = "Decline",
+    val returnToCall: String = "Return to call"
 )
 
 val LocalSautiStrings = compositionLocalOf { SautiStrings() }
