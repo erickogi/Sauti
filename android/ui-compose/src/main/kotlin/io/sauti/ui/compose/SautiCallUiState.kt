@@ -13,6 +13,8 @@ import io.sauti.engine.CallState
 import io.sauti.engine.ConnectionState
 import io.sauti.engine.ParticipantSnapshot
 import io.sauti.engine.Quality
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
@@ -150,5 +152,36 @@ fun rememberSautiCallUiState(
         )
     }
 }
+
+internal fun callUiStateFlow(
+    state: Flow<CallState>,
+    currentDevice: Flow<AudioDevice>,
+    availableDevices: Flow<Set<AudioDevice>>,
+    interrupted: Flow<Boolean>,
+    selfParticipantId: String?,
+    controller: SautiCallController
+): Flow<SautiCallUiState> =
+    combine(state, currentDevice, availableDevices, interrupted) { callState, device, devices, interruption ->
+        buildSautiCallUiState(
+            state = callState,
+            currentDevice = device,
+            availableDevices = devices,
+            interrupted = interruption,
+            selfParticipantId = selfParticipantId,
+            controller = controller
+        )
+    }
+
+fun sautiCallUiStateFlow(
+    client: SautiClient,
+    selfParticipantId: String? = null
+): Flow<SautiCallUiState> = callUiStateFlow(
+    state = client.state,
+    currentDevice = client.currentDevice,
+    availableDevices = client.availableDevices,
+    interrupted = client.interrupted,
+    selfParticipantId = selfParticipantId,
+    controller = ClientController(client)
+)
 
 private const val SHORT_ID_LENGTH = 8
