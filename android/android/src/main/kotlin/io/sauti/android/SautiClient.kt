@@ -17,6 +17,7 @@ import io.sauti.android.telephony.InterruptionPolicy
 import io.sauti.android.telephony.InterruptionReducer
 import io.sauti.android.telephony.TelephonyWatcher
 import io.sauti.android.telephony.UserAudioIntent
+import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.CallEvent
 import io.sauti.engine.CallState
 import io.sauti.engine.EngineConfig
@@ -36,7 +37,8 @@ data class SautiJoinRequest(
     val roomId: String,
     val participantId: String,
     val slotGeneration: Long,
-    val displayTitle: String
+    val displayTitle: String,
+    val endWhenLastPeerLeaves: Boolean = false
 )
 
 class SautiClient internal constructor(
@@ -101,12 +103,13 @@ class SautiClient internal constructor(
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
         connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
-        enableProximity: Boolean = false
+        enableProximity: Boolean = false,
+        audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
     ) : this(
         context = context,
         scope = scope,
         audio = AudioSessionCoordinator(context.applicationContext),
-        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope),
+        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope, audioProcessing),
         resumeStore = ResumeStore(context.applicationContext),
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
@@ -131,7 +134,7 @@ class SautiClient internal constructor(
             )
         )
         scope.launch { observeStateForNotification(request.displayTitle) }
-        engine.join(JoinConfig(request.url, request.token))
+        engine.join(JoinConfig(request.url, request.token, request.endWhenLastPeerLeaves))
     }
 
     private suspend fun observeStateForNotification(title: String) {
