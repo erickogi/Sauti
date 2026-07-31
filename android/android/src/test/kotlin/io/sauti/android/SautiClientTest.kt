@@ -47,12 +47,15 @@ private class FakeCallEngine : CallEngine {
     val holdCalls = mutableListOf<Boolean>()
     var networkChanges = 0
     var leaveCount = 0
+    var lastJoin: JoinConfig? = null
 
     fun setPhase(phase: CallPhase) {
         stateFlow.value = stateFlow.value.copy(phase = phase)
     }
 
-    override suspend fun join(config: JoinConfig) = Unit
+    override suspend fun join(config: JoinConfig) {
+        lastJoin = config
+    }
     override fun setMuted(muted: Boolean) {
         muteCalls += muted
     }
@@ -142,6 +145,28 @@ class SautiClientTest {
         shadowOf(sensorManager).addSensor(Sensor.TYPE_PROXIMITY, sensor)
         shadowOf(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .setIsWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, true)
+    }
+
+    @Test
+    fun endWhenLastPeerLeavesDefaultsFalseInJoinConfig() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.join(joinRequest)
+
+        assertEquals(false, engine.lastJoin?.endWhenLastPeerLeaves)
+        client.leave()
+    }
+
+    @Test
+    fun endWhenLastPeerLeavesIsPlumbedToEngine() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.join(joinRequest.copy(endWhenLastPeerLeaves = true))
+
+        assertEquals(true, engine.lastJoin?.endWhenLastPeerLeaves)
+        client.leave()
     }
 
     @Test
@@ -271,6 +296,46 @@ class SautiClientTest {
             while (store.load() != null) delay(20)
         }
         assertNull(store.load())
+        assertEquals(1, engine.leaveCount)
+    }
+
+    @Test
+    fun clientIsSautiCallHandle() {
+        val client: SautiCall = build()
+        assertTrue(client is SautiClient)
+    }
+
+    @Test
+    fun selfParticipantIdSetOnJoin() = runBlocking {
+        val client = build()
+        assertNull(client.selfParticipantId)
+
+        client.join(joinRequest)
+
+        assertEquals(joinRequest.participantId, client.selfParticipantId)
+        client.leave()
+    }
+
+    @Test
+    fun leaveIsIdempotent() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.leave()
+        client.leave()
+        client.hangUp()
+
+        assertEquals(1, engine.leaveCount)
+    }
+
+    @Test
+    fun leaveInternalDoesNotDoubleStopEngine() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.leaveInternal()
+        client.leave()
+
         assertEquals(1, engine.leaveCount)
     }
 }

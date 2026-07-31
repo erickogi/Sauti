@@ -6,7 +6,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import io.sauti.android.SautiClient
+import io.sauti.android.SautiCall
 import io.sauti.android.audio.AudioDevice
 import io.sauti.engine.CallPhase
 import io.sauti.engine.CallState
@@ -125,16 +125,16 @@ internal fun buildSautiCallUiState(
     )
 }
 
-private class ClientController(private val client: SautiClient) : SautiCallController {
+private class ClientController(private val client: SautiCall) : SautiCallController {
     override fun setMuted(muted: Boolean) = client.setMuted(muted)
     override fun setHold(onHold: Boolean) = client.setHold(onHold)
     override fun selectDevice(device: AudioDevice) = client.selectDevice(device)
-    override fun leave() = client.leave()
+    override fun leave() = client.hangUp()
 }
 
 @Composable
 fun rememberSautiCallUiState(
-    client: SautiClient,
+    client: SautiCall,
     selfParticipantId: String? = null
 ): SautiCallUiState {
     val state by client.state.collectAsState()
@@ -174,7 +174,7 @@ internal fun callUiStateFlow(
     }
 
 fun sautiCallUiStateFlow(
-    client: SautiClient,
+    client: SautiCall,
     selfParticipantId: String? = null
 ): Flow<SautiCallUiState> = callUiStateFlow(
     state = client.state,

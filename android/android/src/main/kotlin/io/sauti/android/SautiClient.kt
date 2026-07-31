@@ -54,7 +54,7 @@ class SautiClient internal constructor(
     enableProximity: Boolean = false,
     proximityFactory: (Context, CoroutineScope, StateFlow<CallState>, StateFlow<AudioDevice>) -> ProximityController =
         { ctx, sc, state, device -> ProximityController(ctx, sc, state, device) }
-) {
+) : SautiCall {
     private val appContext = context.applicationContext
 
     private val telephony = telephonyFactory(appContext) { active ->
@@ -79,11 +79,13 @@ class SautiClient internal constructor(
     private var userMuted = false
     private var userHeld = false
 
-    val state: StateFlow<CallState> get() = engine.state
-    val events: SharedFlow<CallEvent> get() = engine.events
-    val currentDevice: StateFlow<AudioDevice> get() = audio.currentDevice
-    val availableDevices: StateFlow<Set<AudioDevice>> get() = audio.availableDevices
-    val interrupted: StateFlow<Boolean> get() = audio.interrupted
+    override val state: StateFlow<CallState> get() = engine.state
+    override val events: SharedFlow<CallEvent> get() = engine.events
+    override val currentDevice: StateFlow<AudioDevice> get() = audio.currentDevice
+    override val availableDevices: StateFlow<Set<AudioDevice>> get() = audio.availableDevices
+    override val interrupted: StateFlow<Boolean> get() = audio.interrupted
+    override var selfParticipantId: String? = null
+        private set
 
     init {
         audio.onInterrupted = { active ->
@@ -119,6 +121,7 @@ class SautiClient internal constructor(
     )
 
     suspend fun join(request: SautiJoinRequest) {
+        selfParticipantId = request.participantId
         CallForegroundService.start(appContext, request.displayTitle, CallPresence.CONNECTING)
         audio.start()
         telephony.start()
@@ -151,31 +154,45 @@ class SautiClient internal constructor(
         else -> CallPresence.ONGOING
     }
 
-    fun setMuted(muted: Boolean) {
+    override fun setMuted(muted: Boolean) {
         userMuted = muted
         engine.setMuted(muted)
     }
 
-    fun setHold(onHold: Boolean) {
+    override fun setHold(onHold: Boolean) {
         userHeld = onHold
         engine.setHold(onHold)
     }
 
-    fun selectDevice(device: AudioDevice) = audio.selectDevice(device)
+    override fun selectDevice(device: AudioDevice) = audio.selectDevice(device)
+
+    override fun hangUp() = leave()
+
+    private var left = false
+    private var disposed = false
 
     fun leave() {
+        if (left) return
+        leaveInternal()
+        CallForegroundService.stop(appContext)
+    }
+
+    internal fun leaveInternal() {
+        if (left) return
+        left = true
         engine.leave()
         proximity?.stop()
         telephony.stop()
         connectivity.stop()
         audio.stop()
-        CallForegroundService.stop(appContext)
         scope.launch { resumeStore.clear() }
     }
 
     suspend fun pendingResume(): ResumeRecord? = resumeStore.load()
 
     fun dispose() {
+        if (disposed) return
+        disposed = true
         engine.dispose()
     }
 }
