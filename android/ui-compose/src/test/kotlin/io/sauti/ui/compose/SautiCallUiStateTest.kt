@@ -340,4 +340,31 @@ class SautiCallUiStateTest {
         assertEquals(strings.reconnecting, callStatusText(peerUnreachable, strings))
         assertEquals(strings.inCall, callStatusText(selfOnly, strings))
     }
+
+    @Test
+    fun stateSelfIdIdentifiesSelfOverPassedId() {
+        val state = CallState(
+            phase = CallPhase.CONNECTED,
+            participants = listOf(participant("server-self", name = "Me"), participant("peer", name = "Alex")),
+            selfId = "server-self"
+        )
+        val ui = uiStateOf(state, selfParticipantId = "app-credentials-id")
+
+        assertEquals("server-self", ui.self?.participantId)
+        assertEquals(listOf("peer"), ui.others.map { it.participantId })
+        assertEquals("Alex", ui.others.first().label)
+    }
+
+    @Test
+    fun stateSelfIdUsedWhenNoPassedId() {
+        val state = CallState(
+            phase = CallPhase.CONNECTED,
+            participants = listOf(participant("me-server"), participant("peer")),
+            selfId = "me-server"
+        )
+        val ui = uiStateOf(state, selfParticipantId = null)
+
+        assertTrue(ui.self?.isSelf == true)
+        assertEquals(listOf("peer"), ui.others.map { it.participantId })
+    }
 }

@@ -51,6 +51,7 @@ class CallSessionTest {
 
         val state = h.session.state.value
         assertEquals(CallPhase.CONNECTED, state.phase)
+        assertEquals("A", state.selfId)
         assertEquals(setOf("A", "B"), state.participants.map { it.participantId }.toSet())
         val b = state.participants.first { it.participantId == "B" }
         assertTrue(b.muted)

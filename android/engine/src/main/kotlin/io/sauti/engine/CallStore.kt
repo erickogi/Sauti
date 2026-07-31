@@ -136,7 +136,8 @@ class CallStore(now: () -> Long) {
             localOnHold = localOnHold,
             durationMs = clock.elapsedMs(),
             quality = aggregate,
-            reconnecting = reconnecting
+            reconnecting = reconnecting,
+            selfId = selfId
         )
     }
 

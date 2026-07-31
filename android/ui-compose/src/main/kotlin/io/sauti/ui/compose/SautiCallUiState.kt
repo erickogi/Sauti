@@ -100,9 +100,10 @@ internal fun buildSautiCallUiState(
     selfParticipantId: String?,
     controller: SautiCallController
 ): SautiCallUiState {
-    val roster = buildRoster(state.participants, selfParticipantId)
+    val effectiveSelf = state.selfId ?: selfParticipantId
+    val roster = buildRoster(state.participants, effectiveSelf)
     val ordered = state.participants.sortedByDescending {
-        selfParticipantId != null && it.participantId == selfParticipantId
+        effectiveSelf != null && it.participantId == effectiveSelf
     }
     val self = roster.firstOrNull { it.isSelf }
     val others = roster.filter { !it.isSelf }
