@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.sauti"
-version = "0.1.8"
+version = "0.1.9"
 
 android {
     namespace = "io.sauti.ui.compose"
