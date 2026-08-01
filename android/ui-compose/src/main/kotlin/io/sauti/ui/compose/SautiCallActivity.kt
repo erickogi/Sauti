@@ -1,5 +1,6 @@
 package io.sauti.ui.compose
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.Context
@@ -51,6 +52,9 @@ class SautiCallActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             onPermissionResult(result)
         }
+
+    private val cellularStatePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -220,6 +224,7 @@ class SautiCallActivity : ComponentActivity() {
         accepted.value = true
         stopRing()
         startJoinTimeout()
+        requestCellularStateIfEnabled()
         val onAccept = config.onAccept
         val onAfterAccept = config.onAfterAccept
         val defaults = config.sessionDefaults
@@ -231,6 +236,13 @@ class SautiCallActivity : ComponentActivity() {
                 onAfterAccept(incoming)
             }
         }
+    }
+
+    private fun requestCellularStateIfEnabled() {
+        if (!config.autoMuteOnCellularCall) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) return
+        runCatching { cellularStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE) }
     }
 
     private fun startJoinTimeout() {

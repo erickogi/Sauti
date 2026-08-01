@@ -1,11 +1,13 @@
 package io.sauti.ui.compose
 
 import android.app.Application
+import android.app.Notification
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.sauti.android.incoming.ForegroundProbe
+import io.sauti.android.incoming.IncomingCallOverrides
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallRegistry
 import org.junit.After
@@ -54,6 +56,21 @@ class SautiFacadeTest {
         val routed = shadowOf(fullScreen).savedIntent
         assertEquals(ComponentName(context, SautiCallActivity::class.java), routed.component)
         assertEquals(call, SautiIncomingCall.fromExtras(routed.extras))
+    }
+
+    @Test
+    fun presenterAppliesNotificationOverridesToBackgroundPost() {
+        val overrides = IncomingCallOverrides(
+            smallIcon = android.R.drawable.ic_lock_idle_alarm,
+            contentText = "Branded ping"
+        )
+
+        Sauti.presenter(context, ForegroundProbe { false }, overrides).present(call)
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val posted = shadowOf(manager).allNotifications.single()
+        assertEquals("Branded ping", posted.extras.getString(Notification.EXTRA_TEXT))
+        assertEquals(android.R.drawable.ic_lock_idle_alarm, posted.smallIcon.resId)
     }
 
     @Test

@@ -2,6 +2,7 @@ package io.sauti.ui.compose
 
 import android.Manifest
 import io.sauti.android.audio.AudioDevice
+import io.sauti.android.incoming.IncomingCallOverrides
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.ring.RingOverrides
 import io.sauti.engine.AudioProcessingConfig
@@ -55,6 +56,8 @@ object SautiCallHost {
         val onAcceptPermissionDenied: () -> Unit = {},
         val onAfterAccept: (SautiIncomingCall) -> Unit = {},
         val ringOverrides: RingOverrides = RingOverrides(),
+        val notificationOverrides: IncomingCallOverrides = IncomingCallOverrides(),
+        val autoMuteOnCellularCall: Boolean = false,
         val sessionDefaults: SautiSessionDefaults = SautiSessionDefaults()
     )
 

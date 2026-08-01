@@ -6,6 +6,7 @@ import android.content.Intent
 import io.sauti.android.incoming.DefaultForegroundProbe
 import io.sauti.android.incoming.ForegroundProbe
 import io.sauti.android.incoming.IncomingCallNotification
+import io.sauti.android.incoming.IncomingCallOverrides
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallPresenter
 import io.sauti.android.incoming.SautiIncomingCallRegistry
@@ -17,7 +18,8 @@ object Sauti {
     }
 
     fun presentIncomingCall(context: Context, call: SautiIncomingCall) {
-        presenter(context, DefaultForegroundProbe(context)).present(call)
+        presenter(context, DefaultForegroundProbe(context), SautiCallHost.require().notificationOverrides)
+            .present(call)
     }
 
     fun cancelIncomingCall(context: Context, callId: String) {
@@ -27,10 +29,15 @@ object Sauti {
 
     fun resumeIntent(context: Context): Intent = SautiCallActivity.resumeIntent(context)
 
-    internal fun presenter(context: Context, foreground: ForegroundProbe): SautiIncomingCallPresenter =
+    internal fun presenter(
+        context: Context,
+        foreground: ForegroundProbe,
+        overrides: IncomingCallOverrides = IncomingCallOverrides()
+    ): SautiIncomingCallPresenter =
         SautiIncomingCallPresenter(
             context = context,
             target = ComponentName(context, SautiCallActivity::class.java),
-            foreground = foreground
+            foreground = foreground,
+            overrides = overrides
         )
 }
