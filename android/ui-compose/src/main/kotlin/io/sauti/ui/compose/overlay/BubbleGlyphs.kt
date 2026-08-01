@@ -40,6 +40,29 @@ private const val CALL_END_PATH =
 private const val RETURN_CHEVRON_PATH =
     "M15.41,7.41L14,6l-6,6 6,6 1.41,-1.41L10.83,12z"
 
+private const val SPEAKER_PATH =
+    "M3,9v6h4l5,5V4L7,9H3zm13.5,3c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 " +
+        "2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 " +
+        "7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z"
+
+private const val EARPIECE_PATH =
+    "M15,12h2c0,-2.76 -2.24,-5 -5,-5v2c1.66,0 3,1.34 3,3zm4,0h2c0,-4.97 -4.03,-9 -9,-9v2c3.87,0 " +
+        "7,3.13 7,7zm1,3.5c-1.25,0 -2.45,-0.2 -3.57,-0.57 -0.35,-0.11 -0.74,-0.03 -1.02,0.24l-2.2,2.2c" +
+        "-2.83,-1.44 -5.15,-3.75 -6.59,-6.59l2.2,-2.21c0.28,-0.26 0.36,-0.65 0.25,-1C8.7,9.45 8.5,8.25 " +
+        "8.5,7c0,-0.55 -0.45,-1 -1,-1H4c-0.55,0 -1,0.45 -1,1 0,9.39 7.61,17 17,17 0.55,0 1,-0.45 " +
+        "1,-1v-3.5c0,-0.55 -0.45,-1 -1,-1z"
+
+private const val BLUETOOTH_PATH =
+    "M17.71,7.71L12,2h-1v7.59L6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 11,14.41V22h1l5.71,-5.71 " +
+        "-4.3,-4.29 4.3,-4.29zM13,5.83l1.88,1.88L13,9.59V5.83zm1.88,10.46L13,18.17v-3.76l1.88,1.88z"
+
+private const val HEADSET_PATH =
+    "M12,1c-4.97,0 -9,4.03 -9,9v7c0,1.66 1.34,3 3,3h3v-8L5,12v-2c0,-3.87 3.13,-7 7,-7s7,3.13 7,7v2h-4v8h3c" +
+        "1.66,0 3,-1.34 3,-3v-7c0,-4.97 -4.03,-9 -9,-9z"
+
+private const val MINIMIZE_PATH =
+    "M7,10l5,5 5,-5z"
+
 @Composable
 private fun PathGlyph(pathData: String, color: Color, modifier: Modifier) {
     val path = remember(pathData) { PathParser().parsePathString(pathData).toPath() }
@@ -66,3 +89,23 @@ fun CallEndGlyph(color: Color, modifier: Modifier = Modifier) = PathGlyph(CALL_E
 @Composable
 fun ReturnChevronGlyph(color: Color, modifier: Modifier = Modifier) =
     PathGlyph(RETURN_CHEVRON_PATH, color, modifier)
+
+@Composable
+fun SpeakerGlyph(color: Color, modifier: Modifier = Modifier) =
+    PathGlyph(SPEAKER_PATH, color, modifier)
+
+@Composable
+fun EarpieceGlyph(color: Color, modifier: Modifier = Modifier) =
+    PathGlyph(EARPIECE_PATH, color, modifier)
+
+@Composable
+fun BluetoothGlyph(color: Color, modifier: Modifier = Modifier) =
+    PathGlyph(BLUETOOTH_PATH, color, modifier)
+
+@Composable
+fun HeadsetGlyph(color: Color, modifier: Modifier = Modifier) =
+    PathGlyph(HEADSET_PATH, color, modifier)
+
+@Composable
+fun MinimizeGlyph(color: Color, modifier: Modifier = Modifier) =
+    PathGlyph(MINIMIZE_PATH, color, modifier)

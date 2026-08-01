@@ -12,7 +12,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.sauti.ui.compose.overlay.CallEndGlyph
+import io.sauti.ui.compose.overlay.MicGlyph
+import io.sauti.ui.compose.overlay.MicOffGlyph
 
 @Composable
 fun MuteButton(uiState: SautiCallUiState, modifier: Modifier = Modifier) {
@@ -46,6 +50,44 @@ fun EndCallButton(
     ) {
         Text(text = strings.end)
     }
+}
+
+@Composable
+fun SautiMuteButton(
+    uiState: SautiCallUiState,
+    modifier: Modifier = Modifier,
+    size: Dp = 64.dp
+) {
+    val strings = LocalSautiStrings.current
+    val muted = uiState.localMuted
+    val colors = SautiTheme.colors
+    SautiIconButton(
+        contentDescription = if (muted) strings.unmute else strings.mute,
+        backgroundColor = if (muted) colors.controlActiveBackground else colors.controlIdleBackground,
+        contentColor = if (muted) colors.controlActiveContent else colors.controlIdleContent,
+        onClick = { uiState.toggleMute() },
+        modifier = modifier,
+        size = size,
+        glyph = { c, m -> if (muted) MicOffGlyph(c, m) else MicGlyph(c, m) }
+    )
+}
+
+@Composable
+fun SautiEndCallButton(
+    modifier: Modifier = Modifier,
+    size: Dp = 64.dp,
+    onEnd: () -> Unit
+) {
+    val strings = LocalSautiStrings.current
+    SautiIconButton(
+        contentDescription = strings.end,
+        backgroundColor = SautiTheme.colors.danger,
+        contentColor = SautiTheme.colors.onDanger,
+        onClick = onEnd,
+        modifier = modifier,
+        size = size,
+        glyph = { c, m -> CallEndGlyph(c, m) }
+    )
 }
 
 @Composable

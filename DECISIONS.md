@@ -185,3 +185,17 @@ extras needs to keep that intent; the `PendingIntent` overload lets it pass its 
 the library still owns the channel, small icon, category, full-screen flag, insistent flag, and the
 `callId.hashCode()` id. The `ComponentName` overloads now delegate to the `PendingIntent` one, so their
 behaviour is unchanged.
+
+## Icon control primitive and control-state color tokens (call UI move, step 1)
+
+The adopter call look uses circular icon control buttons, but the library shipped only text
+buttons, which is why adopters re-implement the controls. Added `SautiIconButton`, a circular icon
+button (default 64dp, glyph centred at `size * 0.44` inside a `CircleShape`), glyph-slotted so an
+adopter passes a library Canvas glyph or its own painter. Added the missing audio-device and minimize
+glyphs to the Canvas glyph set, and icon-variant `SautiMuteButton`/`SautiEndCallButton` alongside the
+existing text controls. Extended `SautiColors` with six additive, defaulted control-state tokens
+(`controlIdleBackground`/`controlIdleContent`, `controlActiveBackground`/`controlActiveContent`,
+`positive`/`onPositive`) so the control buttons are themeable; `controlIdleContent` defaults to `accent`.
+The library defaults are chosen to match the reference adopter's constants so a later swap onto these
+buttons is visually identical. Existing text controls, glyphs, and every `SautiColors` construction site
+are unchanged. This is the keystone for the avatar-centric solo call screen that follows.
