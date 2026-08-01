@@ -225,3 +225,15 @@ pixel-for-pixel, so the `SautiTypography` parameter no longer restyles those two
 custom `avatar`/`status` slots); the old accept button also pulled its content colour from the danger
 palette, which this corrects. This completes the Compose screen set (solo call, incoming, controls,
 avatar, audio button) published at 0.1.6 for the app to adopt.
+
+## Connecting screen (call UI move, step 4)
+
+Added `SautiConnectingScreen(callerName, modifier, onCancel)`, the post-accept "Connecting" screen for the
+window after the callee accepts and before the call state object exists. It mirrors the top block of
+`SautiSoloCallScreen` exactly (surface background, centred column, 48dp top padding, 96dp `SautiAvatar`, the
+name in headlineSmall bold `onSurface`) so the handoff into the in-call screen does not visibly jump. The
+status line reuses the `CallStatus` connecting styling (`SautiTheme.typography.status`, `onSurfaceMuted`, a
+polite live region) without needing a `SautiCallUiState`, since none exists yet at this stage. A blank caller
+name renders only the status. When `onCancel` is supplied it shows a single `SautiEndCallButton` so the user
+can abort while connecting; otherwise the bottom row is omitted. The adopter's previous bare spinner is
+replaced by this themed screen. Published at 0.1.7.
