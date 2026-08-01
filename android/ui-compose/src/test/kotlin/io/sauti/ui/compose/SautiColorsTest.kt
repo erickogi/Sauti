@@ -27,6 +27,7 @@ class SautiColorsTest {
         assertEquals(Color(0xFF0CA67D), colors.controlActiveContent)
         assertEquals(Color(0xFF0CD39F), colors.positive)
         assertEquals(Color(0xFFFFFFFF), colors.onPositive)
+        assertEquals(Color(0xFFFFFFFF), colors.onAccent)
     }
 
     @Test
@@ -44,7 +45,8 @@ class SautiColorsTest {
             controlActiveBackground = Color(0xFF030303),
             controlActiveContent = Color(0xFF040404),
             positive = Color(0xFF050505),
-            onPositive = Color(0xFF060606)
+            onPositive = Color(0xFF060606),
+            onAccent = Color(0xFF070707)
         )
 
         assertEquals(Color(0xFF010101), colors.controlIdleBackground)
@@ -53,5 +55,6 @@ class SautiColorsTest {
         assertEquals(Color(0xFF040404), colors.controlActiveContent)
         assertEquals(Color(0xFF050505), colors.positive)
         assertEquals(Color(0xFF060606), colors.onPositive)
+        assertEquals(Color(0xFF070707), colors.onAccent)
     }
 }

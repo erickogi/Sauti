@@ -199,3 +199,16 @@ existing text controls. Extended `SautiColors` with six additive, defaulted cont
 The library defaults are chosen to match the reference adopter's constants so a later swap onto these
 buttons is visually identical. Existing text controls, glyphs, and every `SautiColors` construction site
 are unchanged. This is the keystone for the avatar-centric solo call screen that follows.
+
+## Solo call screen and avatar (call UI move, step 2)
+
+Added `SautiSoloCallScreen` (the one-to-one avatar-centric in-call layout), the public `SautiAvatar`, and
+`SautiAudioButton` (an icon audio-device picker), all built on the step-1 icon controls. The layout mirrors
+the reference adopter's in-call screen one-for-one: a 96dp avatar, the name with a peer-muted badge, the
+call status, a bold duration, the quality indicator, the interruption banner, an icon control row
+(mute / audio / end), and a top-start minimize button. The no-peer waiting state falls out when there is no
+other participant (no avatar or name, the waiting status, `00:00`). `onAccent` (text-on-accent, defaulted
+white) and a `minimize` string were appended additively. The screen takes a prebuilt `SautiCallUiState` and
+reads the ambient `SautiTheme`, matching the other state-taking members; the higher-tier `SautiCallScreen`
+(client-driven, self-themed) is unchanged. An adopter who forgets the `SautiTheme` wrapper falls back to the
+default colours and strings rather than crashing.

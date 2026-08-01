@@ -29,7 +29,8 @@ data class SautiColors(
     val controlActiveBackground: Color = Color(0xFFE3FFF1),
     val controlActiveContent: Color = Color(0xFF0CA67D),
     val positive: Color = Color(0xFF0CD39F),
-    val onPositive: Color = Color(0xFFFFFFFF)
+    val onPositive: Color = Color(0xFFFFFFFF),
+    val onAccent: Color = Color(0xFFFFFFFF)
 ) {
     fun colorFor(quality: Quality): Color = when (quality) {
         Quality.GOOD -> qualityGood

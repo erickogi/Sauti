@@ -29,7 +29,8 @@ data class SautiStrings(
     val incomingCallTitle: String = "Incoming call",
     val accept: String = "Accept",
     val decline: String = "Decline",
-    val returnToCall: String = "Return to call"
+    val returnToCall: String = "Return to call",
+    val minimize: String = "Minimize"
 )
 
 val LocalSautiStrings = compositionLocalOf { SautiStrings() }
