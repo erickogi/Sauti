@@ -26,6 +26,7 @@ class CallForegroundService : Service() {
     private var owningClient: SautiClient? = null
     private var storedIntents: SautiCallIntents? = null
     private var serviceScope: CoroutineScope? = null
+    private var hasConnected = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -56,6 +57,8 @@ class CallForegroundService : Service() {
         owningClient = adoption.client
         storedIntents = adoption.intents
         serviceScope = scope
+        hasConnected = false
+        currentEndReason.value = null
         currentCall.value = adoption.client
         goForeground(adoption.request.displayTitle, CallPresence.CONNECTING)
         scope.launch {
@@ -64,6 +67,7 @@ class CallForegroundService : Service() {
         }
         scope.launch {
             adoption.client.state.collect { state ->
+                if (state.phase == CallPhase.CONNECTED) hasConnected = true
                 if (state.phase == CallPhase.LEFT) endCall()
             }
         }
@@ -77,6 +81,7 @@ class CallForegroundService : Service() {
         }
         owningClient = null
         storedIntents = null
+        currentEndReason.value = decideEndReason(hasConnected)
         currentCall.value = null
         serviceScope?.cancel()
         serviceScope = null
@@ -131,6 +136,12 @@ class CallForegroundService : Service() {
 
         private val currentCall = MutableStateFlow<SautiCall?>(null)
         val call: StateFlow<SautiCall?> get() = currentCall.asStateFlow()
+
+        private val currentEndReason = MutableStateFlow<EndReason?>(null)
+        val endedReason: StateFlow<EndReason?> get() = currentEndReason.asStateFlow()
+
+        internal fun decideEndReason(hadConnected: Boolean): EndReason =
+            if (hadConnected) EndReason.COMPLETED else EndReason.FAILED
 
         private val pendingAdoption = AtomicReference<Adoption?>(null)
 
