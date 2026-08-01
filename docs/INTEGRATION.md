@@ -812,6 +812,11 @@ TypeScript packages; it re-implements the wire protocol so a Kotlin peer and a
   is what most apps consume.
 - `io.sauti:rx2` — a thin RxJava2 adapter over the engine's Flow and suspend surface,
   for codebases that are not on coroutines.
+- `io.sauti:ui-compose` — optional Jetpack Compose UI: the in-call screen, the incoming
+  full-screen presentation, the minimized/return pill, the reconnecting state, and the
+  opt-in system-overlay call bubble. Themeable through `SautiTheme` and, for the bubble,
+  `SautiBubbleTheme` + `BubbleConfig`. Consume it only if you want the ready-made UI;
+  an app can build its own UI on `SautiClient`/`SautiCall` state instead.
 
 ### Consumption
 
@@ -822,11 +827,19 @@ The published group is `io.sauti`. Add the artifact that matches your app:
 dependencies {
     implementation("io.sauti:android:<version>") // Coroutines/Flow API, the usual choice
     // implementation("io.sauti:rx2:<version>")   // only if you need the RxJava2 adapter
+    // implementation("io.sauti:ui-compose:<version>") // only if you want the ready-made Compose UI
 }
 ```
 
 The library targets `minSdk 21`. Every API 31+ call has a working legacy path below it,
 so you do not need a high `minSdk`.
+
+If you consume `io.sauti:ui-compose`, the consumer module must apply the Compose
+compiler plugin (`org.jetbrains.kotlin.plugin.compose`) and enable `buildFeatures {
+compose = true }`, even a module that only calls an installer such as the overlay
+bubble. The bubble theme is a `@Composable` lambda; without the Compose compiler in the
+calling module that lambda is compiled to a non-composable type and the call fails to
+link at runtime with a `NoSuchMethodError`.
 
 ### Permissions and manifest
 

@@ -1,10 +1,13 @@
 # io.sauti.ui.compose.overlay
 
-An opt-in system overlay that floats the minimized call pill over other apps. When
-an adopter wires it, an active call shows a small draggable-free bubble on top of
-whatever the user has in front, and a tap returns them to the call. This is the
-over-other-apps surface. It is distinct from the Wave 5 in-app `SautiMinimizedCall`,
-which only renders inside the adopter's own composition while the app is foreground.
+An opt-in system overlay that floats a compact call bubble over other apps. When an
+adopter wires it, an active call shows a small circular handle on top of whatever the
+user has in front. The handle is draggable and snaps to the nearest screen edge; a
+tap expands it to a row of controls (return, mute, end) and a second tap collapses it
+back. It re-clamps to the nearest edge on rotation so it cannot strand off-screen.
+This is the over-other-apps surface. It is distinct from the Wave 5 in-app
+`SautiMinimizedCall`, which only renders inside the adopter's own composition while
+the app is foreground.
 
 This package is off by default. The default `SautiClient` constructor never builds a
 `SautiCallBubble`. `optedIn` defaults to nothing being shown: the reducer yields
@@ -64,26 +67,45 @@ from call activity, the app foreground signal, the live permission check, and
 collection and removes the overlay.
 
 The default host is `WindowManagerOverlayHost`, which adds a `ComposeView` in a
-`TYPE_APPLICATION_OVERLAY` window rendering `SautiMinimizedCall`, wires the view-tree
-lifecycle, saved-state, and view-model owners, and tears them down on removal so no
-window or owner leaks. The overlay reuses the same pill and the same
-`CallForegroundService` as the rest of the library. There is no second service and
-no forked pill. `WindowManagerOverlayHost` requires API 26; on lower levels the
-adopter keeps the in-app pill only.
+`TYPE_APPLICATION_OVERLAY` window rendering `SautiCallBubbleContent`, wires the
+view-tree lifecycle, saved-state, and view-model owners, and tears them down on
+removal so no window or owner leaks. It owns the drag gesture (move, tap-versus-drag
+by touch slop, snap to the nearest edge) and a `ComponentCallbacks` that re-clamps on
+configuration change. Position and expansion persist across state re-emissions within
+a call and reset when the bubble is hidden. The overlay reuses the same
+`CallForegroundService` as the rest of the library; there is no second service.
+`WindowManagerOverlayHost` requires API 26; on lower levels the adopter keeps the
+in-app pill only.
 
-The controller takes a `BubbleOverlayHost` so the show and hide drive logic can be
-exercised on the JVM with a recording fake. Adopters that need a different surface
-can supply their own host.
+The host takes a `SautiBubbleTheme` and a `BubbleConfig` so an adopter can reskin the
+bubble (colors flow from `SautiTheme`) and tune the collapsed size, edge margin, and
+initial edge without touching library code. Because `SautiBubbleTheme` is a
+`@Composable` lambda, the adopter module that passes one must apply the Compose
+compiler plugin, otherwise the theme argument is compiled as a non-composable type and
+the call fails to link at runtime.
+
+The collapsed handle uses an opaque fill, an adaptive edge ring, and a drop shadow so
+it separates from any wallpaper in both themes; the glyph and ring tones are chosen
+from the fill and surface luminance by the pure `BubbleContrast` helper rather than a
+fixed color.
+
+The controller and geometry are testable off-device: the drag math, tap detection,
+expansion transitions, and contrast tone selection live in pure helpers
+(`BubbleGeometry`, `BubbleGesture`, `BubbleExpansion`, `BubbleContrast`) with JVM unit
+tests, and the controller takes a `BubbleOverlayHost`
+so the show and hide drive logic can be exercised with a recording fake. Adopters that
+need a different surface can supply their own host.
 
 ## What is not unit-proven here
 
 The following depend on the device window and compose runtime and are covered by a
 standing manual device demo, not by unit tests:
 
-- the real render of the pill over other apps
+- the real render of the bubble over other apps
 - the `ComposeView`-in-overlay view-tree lifecycle and teardown
 - the `canDrawOverlays` grant and revoke settings flow
-- tap-to-return from the overlay
+- tap-to-expand, the expanded controls, and tap-to-collapse from the overlay
+- the drag gesture, snap-to-edge, and re-clamp on rotation
 - the overlay and the foreground service running at the same time
 - removal of the overlay when the permission is revoked while it is shown
 

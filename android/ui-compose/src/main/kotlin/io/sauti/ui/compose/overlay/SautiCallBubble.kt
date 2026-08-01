@@ -3,12 +3,14 @@ package io.sauti.ui.compose.overlay
 import android.content.Context
 import io.sauti.android.incoming.DefaultForegroundProbe
 import io.sauti.android.incoming.ForegroundProbe
+import io.sauti.android.overlay.BubbleConfig
 import io.sauti.android.overlay.BubbleReducer
 import io.sauti.android.overlay.BubbleVisibility
 import io.sauti.android.overlay.DefaultOverlayPermission
 import io.sauti.android.overlay.OverlayPermission
 import io.sauti.android.overlay.bubbleCallActive
 import io.sauti.ui.compose.SautiCallUiState
+import io.sauti.ui.compose.SautiTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,9 +33,11 @@ class SautiCallBubble internal constructor(
         uiStateFlow: Flow<SautiCallUiState>,
         optedIn: Boolean,
         onReturn: () -> Unit,
+        theme: SautiBubbleTheme = { content -> SautiTheme { content() } },
+        config: BubbleConfig = BubbleConfig(),
         foreground: ForegroundProbe = DefaultForegroundProbe(context),
         permission: OverlayPermission = DefaultOverlayPermission(context),
-        host: BubbleOverlayHost = WindowManagerOverlayHost(context, onReturn),
+        host: BubbleOverlayHost = WindowManagerOverlayHost(context, onReturn, theme, config),
         foregroundFlow: Flow<Boolean>? = null
     ) : this(
         uiStateFlow = uiStateFlow,

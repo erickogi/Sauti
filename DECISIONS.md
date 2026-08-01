@@ -133,3 +133,24 @@ maps 1:1 onto Wave 1 `SautiIncomingCall`'s `Map<String,String>`), narrower than 
 data map so they cannot collide with the fixed top-level keys, and `WAKE_PUSH_JOIN_HINT_KEY` is the
 reserved key that carries `joinHint` into the callee metadata. `callerDisplayHint` is an opaque
 host-supplied label; the library never derives, logs, or inspects it.
+
+## Overlay bubble: draggable compact handle and dark-mode contrast (adoption)
+
+During the passenger-app adoption the Wave 6 overlay bubble evolved from a fixed
+tap-to-return pill into a compact draggable handle. The handle drags and snaps to the
+nearest screen edge (tap versus drag resolved by touch slop), a tap expands it to
+return/mute/end controls and a second tap collapses it, and it re-clamps to the nearest
+edge on a configuration change so a rotation cannot strand it off-screen. The geometry,
+gesture, and expansion logic live in pure helpers (`BubbleGeometry`, `BubbleGesture`,
+`BubbleExpansion`, `BubbleConfig`) so they are JVM-tested; only the `WindowManagerOverlayHost`
+touch wiring stays device-only.
+
+Visibility on dark themes and busy wallpapers is solved without any branding. The
+collapsed handle keeps an opaque accent fill but adds an adaptive edge ring plus a drop
+shadow, and the glyph and ring tones are chosen from the fill and surface luminance by
+the pure `BubbleContrast` helper rather than a fixed `onAccent`. `contrastToneOn` uses
+WCAG relative luminance with the pivot `0.179` (the luminance at which contrast to white
+equals contrast to black), so the glyph stays readable whatever accent an adopter themes.
+The visible fill is inset to 46dp inside the fixed 56dp touch box so the shadow and ring
+have room without changing the collapsed geometry the snap and clamp math depend on. The
+host is themeable via `SautiBubbleTheme` and `BubbleConfig`.

@@ -1,9 +1,11 @@
 package io.sauti.ui.compose.overlay
 
 import android.app.Application
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import io.sauti.android.overlay.BubbleConfig
 import io.sauti.android.service.CallForegroundService
 import io.sauti.ui.compose.sautiCallUiStateFlow
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +15,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+typealias SautiBubbleTheme = @Composable (@Composable () -> Unit) -> Unit
+
+fun installSautiCallBubble(
+    application: Application,
+    onReturn: () -> Unit,
+    optedIn: Boolean,
+    theme: SautiBubbleTheme,
+    config: BubbleConfig = BubbleConfig()
+) = installSautiCallBubble(
+    application = application,
+    onReturn = onReturn,
+    host = WindowManagerOverlayHost(application, onReturn, theme, config),
+    optedIn = optedIn
+)
 
 fun installSautiCallBubble(
     application: Application,
