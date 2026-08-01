@@ -212,3 +212,16 @@ white) and a `minimize` string were appended additively. The screen takes a preb
 reads the ambient `SautiTheme`, matching the other state-taking members; the higher-tier `SautiCallScreen`
 (client-driven, self-themed) is unchanged. An adopter who forgets the `SautiTheme` wrapper falls back to the
 default colours and strings rather than crashing.
+
+## Incoming call screen icon actions (call UI move, step 3)
+
+`SautiIncomingCallScreen` now renders circular icon accept and decline actions (72dp) instead of text
+buttons, mirroring the adopter incoming screen: decline uses `CallEndGlyph` on `danger`/`onDanger`, accept
+uses `PhoneGlyph` on `positive`/`onPositive`. The private default avatar was replaced by the public
+`SautiAvatar`, and the top padding, spacing, and typography were aligned to the adopter layout. The
+`avatar`/`status`/`colors` customization slots are preserved. One deliberate tradeoff: the built-in name
+and subtitle now use `MaterialTheme.typography` (headlineSmall bold, bodyMedium) to match the adopter
+pixel-for-pixel, so the `SautiTypography` parameter no longer restyles those two texts (it still flows to
+custom `avatar`/`status` slots); the old accept button also pulled its content colour from the danger
+palette, which this corrects. This completes the Compose screen set (solo call, incoming, controls,
+avatar, audio button) published at 0.1.6 for the app to adopt.
