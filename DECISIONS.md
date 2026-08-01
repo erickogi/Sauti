@@ -154,3 +154,25 @@ equals contrast to black), so the glyph stays readable whatever accent an adopte
 The visible fill is inset to 46dp inside the fixed 56dp touch box so the shadow and ring
 have room without changing the collapsed geometry the snap and clamp math depend on. The
 host is themeable via `SautiBubbleTheme` and `BubbleConfig`.
+
+## Incoming-call adoption enablers: notification branding and an imperative pre-answer ring
+
+Two additive changes let an adopter drive the library's incoming-call presentation without
+regressing its own branding or its pre-answer ring. A parity analysis before switching the
+passenger app onto the library found these two gaps blocked a no-regression switch.
+
+`IncomingCallOverrides` gained an optional `smallIcon` and `contentText`. `IncomingCallNotification`
+hardcoded a generic phone small icon on both the plain and the CallStyle path and set no body, so an
+adopter with its own brand icon and title/body would lose them on switch. The overrides default to
+the previous icon and no body, so the default path is unchanged.
+
+For the pre-answer ring the choice was an imperative facade (`SautiIncomingRing`) over feeding a
+synthetic `CallState` into the flow-driven `SautiRinger`. The incoming screen rings before the user
+accepts, where there is no `SautiClient` or `CallState` yet, but `SautiRinger.start` requires a
+`StateFlow<CallState>` and rings only in IDLE or CONNECTING. Fabricating a `CallState` the caller
+does not own would leak an engine type into a context with no engine and shift the stop-or-leak risk
+onto the adopter. `SautiIncomingRing` instead reads the ringer mode once and applies the existing
+incoming mapping, with `start()` and `stop()` idempotent and leak-safe. To reuse the mapping without
+duplicating it, `RingReducer.incomingFor` was widened from private to the public `RingReducer.incoming`;
+`reduceIncoming` still delegates to it, so existing callers are unaffected. The leaf ring ports stay
+internal; adopters go through `create(context, overrides)`.

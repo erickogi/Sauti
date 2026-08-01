@@ -22,11 +22,11 @@ object RingReducer {
     }
 
     private fun reduceIncoming(state: CallState, ringerMode: RingerMode): RingMode = when (state.phase) {
-        CallPhase.IDLE, CallPhase.CONNECTING -> incomingFor(ringerMode)
+        CallPhase.IDLE, CallPhase.CONNECTING -> incoming(ringerMode)
         else -> RingMode.Silent
     }
 
-    private fun incomingFor(ringerMode: RingerMode): RingMode = when (ringerMode) {
+    fun incoming(ringerMode: RingerMode): RingMode = when (ringerMode) {
         RingerMode.SILENT -> RingMode.Silent
         RingerMode.VIBRATE -> RingMode.Incoming(sound = false)
         RingerMode.NORMAL -> RingMode.Incoming(sound = true)
