@@ -176,3 +176,12 @@ incoming mapping, with `start()` and `stop()` idempotent and leak-safe. To reuse
 duplicating it, `RingReducer.incomingFor` was widened from private to the public `RingReducer.incoming`;
 `reduceIncoming` still delegates to it, so existing callers are unaffected. The leaf ring ports stay
 internal; adopters go through `create(context, overrides)`.
+
+`IncomingCallNotification.build`/`post` also gained an overload that takes a caller-supplied full-screen
+`PendingIntent` instead of a `ComponentName`. The `ComponentName` overloads build their launch intent
+from the library's own extra keys via `SautiIncomingCall.toExtras`, which only works if the adopter's
+activity reads those keys. An adopter that already launches its own incoming-call activity with its own
+extras needs to keep that intent; the `PendingIntent` overload lets it pass its own launch intent while
+the library still owns the channel, small icon, category, full-screen flag, insistent flag, and the
+`callId.hashCode()` id. The `ComponentName` overloads now delegate to the `PendingIntent` one, so their
+behaviour is unchanged.

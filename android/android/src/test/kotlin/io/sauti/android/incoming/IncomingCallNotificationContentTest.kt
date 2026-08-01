@@ -57,6 +57,19 @@ class IncomingCallNotificationContentTest {
     }
 
     @Test
+    fun suppliedFullScreenIntentIsUsed() {
+        val supplied = pendingIntent(99)
+        val notification = IncomingCallNotification.build(
+            context = context,
+            call = SautiIncomingCall("supplied-intent", "room"),
+            fullScreenIntent = supplied
+        )
+
+        assertEquals(supplied, notification.fullScreenIntent)
+        assertEquals(supplied, notification.contentIntent)
+    }
+
+    @Test
     fun defaultsUnchangedWhenOverridesNull() {
         val notification = IncomingCallNotification.build(
             context = context,
