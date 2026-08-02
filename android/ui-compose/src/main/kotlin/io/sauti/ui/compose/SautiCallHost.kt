@@ -70,6 +70,8 @@ object SautiCallHost {
         this.config = config
     }
 
+    internal fun optional(): Config? = config
+
     internal fun require(): Config =
         config ?: error("SautiCallHost.configure must run before a call is shown")
 }

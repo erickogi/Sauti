@@ -54,7 +54,9 @@ class SautiCallActivity : ComponentActivity() {
         }
 
     private val cellularStatePermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) CallForegroundService.rearmTelephony(applicationContext)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +70,7 @@ class SautiCallActivity : ComponentActivity() {
             incoming != null -> setupIncoming(incoming)
             isResume(intent) || CallForegroundService.call.value != null -> setupResume()
             else -> {
-                finish()
+                finishAndRemoveTask()
                 return
             }
         }
@@ -155,7 +157,7 @@ class SautiCallActivity : ComponentActivity() {
             if (phase == SautiHostPhase.ENDED) {
                 stopRing()
                 delay(ENDED_LINGER_MS)
-                if (!isFinishing) finish()
+                if (!isFinishing) finishAndRemoveTask()
             }
         }
         SautiTheme(colors = config.colors, typography = config.typography, strings = config.strings) {
@@ -228,11 +230,12 @@ class SautiCallActivity : ComponentActivity() {
         val onAccept = config.onAccept
         val onAfterAccept = config.onAfterAccept
         val defaults = config.sessionDefaults
+        val autoMute = config.autoMuteOnCellularCall
         val appContext = applicationContext
         SautiCallHost.scope.launch {
             val ticket = runCatching { onAccept(incoming) }.getOrNull() ?: return@launch
             runCatching {
-                SautiHostJoin.join(appContext, ticket, defaults)
+                SautiHostJoin.join(appContext, ticket, defaults, autoMute)
                 onAfterAccept(incoming)
             }
         }
@@ -266,7 +269,7 @@ class SautiCallActivity : ComponentActivity() {
             val onDecline = config.onDecline
             SautiCallHost.scope.launch { runCatching { onDecline(incoming) } }
         }
-        finish()
+        finishAndRemoveTask()
     }
 
     private fun onEndClicked() {
@@ -277,7 +280,7 @@ class SautiCallActivity : ComponentActivity() {
         if (accepted.value) return
         if (isFinishing) return
         stopRing()
-        finish()
+        finishAndRemoveTask()
     }
 
     private fun minimize() {
@@ -291,7 +294,7 @@ class SautiCallActivity : ComponentActivity() {
                     SautiHostPhase.INCOMING -> onDeclineClicked()
                     SautiHostPhase.CONNECTING -> minimize()
                     SautiHostPhase.IN_CALL -> minimize()
-                    SautiHostPhase.ENDED -> finish()
+                    SautiHostPhase.ENDED -> finishAndRemoveTask()
                 }
             }
         })

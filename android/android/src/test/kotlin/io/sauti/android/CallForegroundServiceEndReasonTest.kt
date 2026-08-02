@@ -1,5 +1,6 @@
 package io.sauti.android
 
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
@@ -63,6 +64,15 @@ private class NoopStartable : Startable {
     override fun stop() = Unit
 }
 
+private class CountingStartable : Startable {
+    var startCount = 0
+    override fun start() {
+        startCount += 1
+    }
+
+    override fun stop() = Unit
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class CallForegroundServiceEndReasonTest {
@@ -78,27 +88,93 @@ class CallForegroundServiceEndReasonTest {
         displayTitle = "Call"
     )
 
-    private fun buildClient(engine: RecordingEngine): SautiClient = SautiClient(
+    private fun buildClient(
+        engine: RecordingEngine,
+        telephony: Startable = NoopStartable(),
+        enableTelephonyAutoMute: Boolean = true
+    ): SautiClient = SautiClient(
         context = context,
         scope = CoroutineScope(Dispatchers.Unconfined),
         audio = NoopAudio(),
         engine = engine,
         resumeStore = ResumeStore(context),
-        telephonyFactory = { _, _ -> NoopStartable() },
-        connectivityFactory = { _, _ -> NoopStartable() }
+        telephonyFactory = { _, _ -> telephony },
+        connectivityFactory = { _, _ -> NoopStartable() },
+        enableTelephonyAutoMute = enableTelephonyAutoMute
     )
 
-    private fun adopt(client: SautiClient) {
+    private fun adopt(client: SautiClient, enableTelephonyAutoMute: Boolean = true) {
         val intents = SautiCallIntents(
             CallNotification.placeholderIntent(context),
             CallNotification.hangupIntent(context)
         )
-        CallForegroundService.startCall(context, client, request, intents)
+        CallForegroundService.startCall(
+            context, client, request, intents, enableTelephonyAutoMute = enableTelephonyAutoMute
+        )
         val intent = Intent(context, CallForegroundService::class.java).apply {
             action = CallForegroundService.ACTION_ADOPT
         }
         val service = Robolectric.buildService(CallForegroundService::class.java, intent).create().get()
         service.onStartCommand(intent, 0, 1)
+    }
+
+    @Test
+    fun adoptStartsTelephonyWatcherWhenAutoMuteEnabled() {
+        val telephony = CountingStartable()
+        val client = buildClient(RecordingEngine(), telephony = telephony, enableTelephonyAutoMute = true)
+
+        adopt(client, enableTelephonyAutoMute = true)
+
+        assertEquals(1, telephony.startCount)
+    }
+
+    @Test
+    fun adoptDoesNotStartTelephonyWatcherWhenAutoMuteDisabled() {
+        val telephony = CountingStartable()
+        val client = buildClient(RecordingEngine(), telephony = telephony, enableTelephonyAutoMute = false)
+
+        adopt(client, enableTelephonyAutoMute = false)
+
+        assertEquals(0, telephony.startCount)
+    }
+
+    @Test
+    fun rearmWithNoActiveCallIsSafeNoOp() {
+        val telephony = CountingStartable()
+        buildClient(RecordingEngine(), telephony = telephony, enableTelephonyAutoMute = true)
+
+        val intent = Intent(context, CallForegroundService::class.java).apply {
+            action = CallForegroundService.ACTION_REARM
+        }
+        val service = Robolectric.buildService(CallForegroundService::class.java, intent).create().get()
+        val result = service.onStartCommand(intent, 0, 1)
+
+        assertEquals(Service.START_NOT_STICKY, result)
+        assertEquals(0, telephony.startCount)
+    }
+
+    @Test
+    fun rearmAfterAdoptReArmsActiveClientTelephonyWatcher() {
+        val telephony = CountingStartable()
+        val client = buildClient(RecordingEngine(), telephony = telephony, enableTelephonyAutoMute = true)
+        val intents = SautiCallIntents(
+            CallNotification.placeholderIntent(context),
+            CallNotification.hangupIntent(context)
+        )
+        CallForegroundService.startCall(context, client, request, intents, enableTelephonyAutoMute = true)
+        val adoptIntent = Intent(context, CallForegroundService::class.java).apply {
+            action = CallForegroundService.ACTION_ADOPT
+        }
+        val service = Robolectric.buildService(CallForegroundService::class.java, adoptIntent).create().get()
+        service.onStartCommand(adoptIntent, 0, 1)
+        assertEquals(1, telephony.startCount)
+
+        val rearmIntent = Intent(context, CallForegroundService::class.java).apply {
+            action = CallForegroundService.ACTION_REARM
+        }
+        service.onStartCommand(rearmIntent, 0, 2)
+
+        assertEquals(2, telephony.startCount)
     }
 
     @Test

@@ -74,6 +74,15 @@ class SautiFacadeTest {
     }
 
     @Test
+    fun presentIncomingCallDoesNotThrowWhenHostUnconfigured() {
+        Sauti.presentIncomingCall(context, call)
+
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val startedActivity = shadowOf(context as Application).nextStartedActivity
+        assertTrue(shadowOf(manager).size() == 1 || startedActivity != null)
+    }
+
+    @Test
     fun cancelBeforeRegisterFinishesTheHostFinisherAndClearsNotification() {
         Sauti.presenter(context, ForegroundProbe { false }).present(call)
 

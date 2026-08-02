@@ -11,18 +11,25 @@ import io.sauti.engine.EngineConfig
 
 internal object SautiHostJoin {
 
-    fun join(context: Context, ticket: SautiSessionTicket, defaults: SautiSessionDefaults) {
+    fun join(
+        context: Context,
+        ticket: SautiSessionTicket,
+        defaults: SautiSessionDefaults,
+        enableTelephonyAutoMute: Boolean
+    ) {
         val appContext = context.applicationContext
         val client = SautiClient(
             context = appContext,
             engineConfig = EngineConfig(onQoe = defaults.onQoe),
             connectivityPolicy = ConnectivityPolicy(debounceMs = defaults.iceRestartDebounceMs),
+            enableTelephonyAutoMute = enableTelephonyAutoMute,
             enableProximity = defaults.enableProximity,
             audioProcessing = defaults.audioProcessing
         )
         CallForegroundService.startCall(
             context = appContext,
             client = client,
+            enableTelephonyAutoMute = enableTelephonyAutoMute,
             request = SautiJoinRequest(
                 url = ticket.url,
                 token = ticket.token,

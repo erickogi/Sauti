@@ -27,6 +27,7 @@ class CallForegroundService : Service() {
     private var storedIntents: SautiCallIntents? = null
     private var serviceScope: CoroutineScope? = null
     private var hasConnected = false
+    private var autoMuteEnabled = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,6 +36,7 @@ class CallForegroundService : Service() {
             intent == null -> stopSelfCompat()
             intent.action == ACTION_STOP -> endCall()
             intent.action == ACTION_ADOPT -> adopt()
+            intent.action == ACTION_REARM -> rearmTelephony()
             else -> {
                 val title = intent.getStringExtra(EXTRA_TITLE) ?: DEFAULT_TITLE
                 val presence = presenceOf(intent.getStringExtra(EXTRA_PRESENCE))
@@ -58,6 +60,7 @@ class CallForegroundService : Service() {
         storedIntents = adoption.intents
         serviceScope = scope
         hasConnected = false
+        autoMuteEnabled = adoption.enableTelephonyAutoMute
         currentEndReason.value = null
         currentCall.value = adoption.client
         goForeground(adoption.request.displayTitle, CallPresence.CONNECTING)
@@ -81,6 +84,7 @@ class CallForegroundService : Service() {
         }
         owningClient = null
         storedIntents = null
+        autoMuteEnabled = false
         currentEndReason.value = decideEndReason(hasConnected)
         currentCall.value = null
         serviceScope?.cancel()
@@ -88,6 +92,15 @@ class CallForegroundService : Service() {
         client.leaveInternal()
         client.dispose()
         stopSelfCompat()
+    }
+
+    private fun rearmTelephony() {
+        val client = owningClient
+        if (client == null) {
+            stopSelfCompat()
+            return
+        }
+        if (autoMuteEnabled) client.rearmTelephony()
     }
 
     private fun goForeground(title: String, presence: CallPresence) {
@@ -130,6 +143,7 @@ class CallForegroundService : Service() {
     companion object {
         const val ACTION_STOP = "io.sauti.android.action.STOP"
         const val ACTION_ADOPT = "io.sauti.android.action.ADOPT"
+        const val ACTION_REARM = "io.sauti.android.action.REARM"
         const val EXTRA_TITLE = "io.sauti.android.extra.TITLE"
         const val EXTRA_PRESENCE = "io.sauti.android.extra.PRESENCE"
         private const val DEFAULT_TITLE = "Call"
@@ -149,7 +163,8 @@ class CallForegroundService : Service() {
             val client: SautiClient,
             val request: SautiJoinRequest,
             val intents: SautiCallIntents,
-            val initialDevice: AudioDevice?
+            val initialDevice: AudioDevice?,
+            val enableTelephonyAutoMute: Boolean
         )
 
         fun startCall(
@@ -157,9 +172,12 @@ class CallForegroundService : Service() {
             client: SautiClient,
             request: SautiJoinRequest,
             intents: SautiCallIntents,
-            initialDevice: AudioDevice? = null
+            initialDevice: AudioDevice? = null,
+            enableTelephonyAutoMute: Boolean = true
         ) {
-            pendingAdoption.getAndSet(Adoption(client, request, intents, initialDevice))?.client?.dispose()
+            pendingAdoption.getAndSet(
+                Adoption(client, request, intents, initialDevice, enableTelephonyAutoMute)
+            )?.client?.dispose()
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_ADOPT
                 putExtra(EXTRA_TITLE, request.displayTitle)
@@ -179,6 +197,13 @@ class CallForegroundService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_STOP
+            }
+            context.startService(intent)
+        }
+
+        fun rearmTelephony(context: Context) {
+            val intent = Intent(context, CallForegroundService::class.java).apply {
+                action = ACTION_REARM
             }
             context.startService(intent)
         }

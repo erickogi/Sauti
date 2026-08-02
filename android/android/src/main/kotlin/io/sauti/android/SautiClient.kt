@@ -51,6 +51,7 @@ class SautiClient internal constructor(
     connectivityFactory: (Context, (NetworkEventKind) -> Unit) -> Startable,
     connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
     private val interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
+    private val enableTelephonyAutoMute: Boolean = true,
     enableProximity: Boolean = false,
     proximityFactory: (Context, CoroutineScope, StateFlow<CallState>, StateFlow<AudioDevice>) -> ProximityController =
         { ctx, sc, state, device -> ProximityController(ctx, sc, state, device) }
@@ -106,7 +107,8 @@ class SautiClient internal constructor(
         connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
         enableProximity: Boolean = false,
-        audioProcessing: AudioProcessingConfig = AudioProcessingConfig()
+        audioProcessing: AudioProcessingConfig = AudioProcessingConfig(),
+        enableTelephonyAutoMute: Boolean = true
     ) : this(
         context = context,
         scope = scope,
@@ -117,6 +119,7 @@ class SautiClient internal constructor(
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
         connectivityPolicy = connectivityPolicy,
         interruptionPolicy = interruptionPolicy,
+        enableTelephonyAutoMute = enableTelephonyAutoMute,
         enableProximity = enableProximity
     )
 
@@ -124,7 +127,7 @@ class SautiClient internal constructor(
         selfParticipantId = request.participantId
         CallForegroundService.start(appContext, request.displayTitle, CallPresence.CONNECTING)
         audio.start()
-        telephony.start()
+        if (enableTelephonyAutoMute) telephony.start()
         connectivity.start()
         proximity?.start()
         resumeStore.save(
@@ -152,6 +155,12 @@ class SautiClient internal constructor(
     private fun presenceOf(snapshot: CallState): CallPresence = when {
         snapshot.reconnecting -> CallPresence.RECONNECTING
         else -> CallPresence.ONGOING
+    }
+
+    fun rearmTelephony() {
+        if (!enableTelephonyAutoMute) return
+        if (left) return
+        telephony.start()
     }
 
     override fun setMuted(muted: Boolean) {

@@ -18,7 +18,8 @@ object Sauti {
     }
 
     fun presentIncomingCall(context: Context, call: SautiIncomingCall) {
-        presenter(context, DefaultForegroundProbe(context), SautiCallHost.require().notificationOverrides)
+        val overrides = SautiCallHost.optional()?.notificationOverrides ?: IncomingCallOverrides()
+        presenter(context, DefaultForegroundProbe(context), overrides)
             .present(call)
     }
 
