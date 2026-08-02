@@ -1,6 +1,7 @@
 package io.sauti.ui.compose
 
 import android.app.Application
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.ComponentName
@@ -27,6 +28,11 @@ class SautiFacadeTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val call = SautiIncomingCall("facade-call", "facade-room", "Ada", mapOf("name" to "Ada"))
 
+    private fun lockDevice() {
+        val manager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        shadowOf(manager).setKeyguardLocked(true)
+    }
+
     @After
     fun tearDown() {
         SautiIncomingCallRegistry.finish(call.callId)
@@ -45,6 +51,7 @@ class SautiFacadeTest {
 
     @Test
     fun backgroundPresentPostsFullScreenNotificationTargetingSautiCallActivity() {
+        lockDevice()
         Sauti.presenter(context, ForegroundProbe { false }).present(call)
 
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -65,6 +72,7 @@ class SautiFacadeTest {
             contentText = "Branded ping"
         )
 
+        lockDevice()
         Sauti.presenter(context, ForegroundProbe { false }, overrides).present(call)
 
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -84,6 +92,7 @@ class SautiFacadeTest {
 
     @Test
     fun cancelBeforeRegisterFinishesTheHostFinisherAndClearsNotification() {
+        lockDevice()
         Sauti.presenter(context, ForegroundProbe { false }).present(call)
 
         Sauti.cancelIncomingCall(context, call.callId)

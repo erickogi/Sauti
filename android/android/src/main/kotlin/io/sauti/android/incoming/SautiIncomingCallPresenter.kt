@@ -8,6 +8,7 @@ class SautiIncomingCallPresenter(
     private val context: Context,
     private val target: ComponentName,
     private val foreground: ForegroundProbe = DefaultForegroundProbe(context),
+    private val keyguard: KeyguardProbe = DefaultKeyguardProbe(context),
     private val registry: SautiIncomingCallRegistry = SautiIncomingCallRegistry,
     private val overrides: IncomingCallOverrides = IncomingCallOverrides(),
     private val actions: CallActionIntents? = null,
@@ -25,10 +26,16 @@ class SautiIncomingCallPresenter(
             } catch (error: SecurityException) {
                 postNotification(call)
             }
-        } else {
-            postNotification(call)
+            return
+        }
+        postNotification(call)
+        if (shouldLaunchActivity(isForeground = false, isLocked = keyguard.isDeviceLocked())) {
+            runCatching { launchActivity(call) }
         }
     }
+
+    internal fun shouldLaunchActivity(isForeground: Boolean, isLocked: Boolean): Boolean =
+        isForeground || !isLocked
 
     fun cancel(callId: String) {
         IncomingCallNotification.cancel(context, callId)

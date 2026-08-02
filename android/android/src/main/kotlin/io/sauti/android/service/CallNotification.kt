@@ -18,7 +18,8 @@ enum class CallPresence {
 }
 
 object CallNotification {
-    const val CHANNEL_ID = "sauti_calls"
+    const val CHANNEL_ID = "sauti_ongoing_call"
+    const val LEGACY_CHANNEL_ID = "sauti_calls"
     const val NOTIFICATION_ID = 0x5A07
 
     fun ensureChannel(context: Context) {
@@ -26,10 +27,11 @@ object CallNotification {
         val manager = context.getSystemService(NotificationManager::class.java)
         val existing = manager.getNotificationChannel(CHANNEL_ID)
         if (existing != null) return
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(io.sauti.android.R.string.sauti_channel_name),
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = context.getString(io.sauti.android.R.string.sauti_channel_description)
             setShowBadge(false)
@@ -62,7 +64,7 @@ object CallNotification {
             .setContentText(text)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setFullScreenIntent(fullScreenIntent, true)
             .apply { if (contentIntent != null) setContentIntent(contentIntent) }
             .addAction(
