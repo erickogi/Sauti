@@ -3,10 +3,8 @@ package io.sauti.ui.compose.outgoing
 import android.content.Context
 import io.sauti.android.outgoing.SautiOutgoingCallRegistry
 import io.sauti.android.ring.CallRole
-import io.sauti.android.ring.RingReducer
 import io.sauti.android.ring.SautiRinger
 import io.sauti.android.service.CallForegroundService
-import io.sauti.engine.CallPhase
 import io.sauti.ui.compose.SautiCallActivity
 import io.sauti.ui.compose.SautiCallHost
 import io.sauti.ui.compose.SautiHostJoin
@@ -20,12 +18,12 @@ import kotlinx.coroutines.launch
 internal object SautiOutgoingController {
 
     private class Live(
-        val callId: String,
-        val selfParticipantId: String?
+        val callId: String
     ) {
         var peerJoined: Boolean = false
         var tearingDown: Boolean = false
         var sawSession: Boolean = false
+        var ringSelfId: String? = null
         var observerJob: Job? = null
         var ringer: SautiRinger? = null
     }
@@ -107,7 +105,7 @@ internal object SautiOutgoingController {
     }
 
     private fun arm(app: Context, ticket: SautiSessionTicket) {
-        val record = Live(ticket.callId, ticket.participantId)
+        val record = Live(ticket.callId)
         live = record
         val ringer = SautiRinger.create(app, SautiCallHost.scope)
         record.ringer = ringer
@@ -118,11 +116,15 @@ internal object SautiOutgoingController {
                     return@collectLatest
                 }
                 record.sawSession = true
-                ringer.start(CallRole.OUTGOING, session.state, record.selfParticipantId)
+                record.ringSelfId = session.state.value.selfId
+                ringer.start(CallRole.OUTGOING, session.state, record.ringSelfId)
                 session.state.collect { snapshot ->
-                    if (snapshot.phase == CallPhase.CONNECTED &&
-                        RingReducer.remotePresent(snapshot, record.selfParticipantId)
-                    ) {
+                    val resolvedSelf = snapshot.selfId
+                    if (resolvedSelf != null && resolvedSelf != record.ringSelfId) {
+                        record.ringSelfId = resolvedSelf
+                        ringer.start(CallRole.OUTGOING, session.state, resolvedSelf)
+                    }
+                    if (OutgoingPeerPresence.peerJoined(snapshot.phase, snapshot.participants)) {
                         onPeerJoined()
                     }
                 }
