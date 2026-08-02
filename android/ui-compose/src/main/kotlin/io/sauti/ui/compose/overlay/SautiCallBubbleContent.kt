@@ -30,12 +30,12 @@ import io.sauti.ui.compose.SautiTheme
 import io.sauti.ui.compose.formatDuration
 import kotlin.math.roundToInt
 
-private val CollapsedSize = 56.dp
-private val FillSize = 46.dp
+private val CollapsedSize = 72.dp
+private val FillSize = 60.dp
 private val RingWidth = 1.5.dp
 private val Elevation = 6.dp
 private val ControlSize = 44.dp
-private val GlyphSize = 22.dp
+private val GlyphSize = 28.dp
 
 @Composable
 fun SautiCallBubbleContent(
