@@ -19,7 +19,13 @@ data class SautiSessionTicket(
     val displayTitle: String,
     val slotGeneration: Long = 1L,
     val endWhenLastPeerLeaves: Boolean = true,
-    val initialDevice: AudioDevice = AudioDevice.EARPIECE
+    val initialDevice: AudioDevice = AudioDevice.EARPIECE,
+    val callId: String = ""
+)
+
+data class SautiOutgoingRequest(
+    val target: String,
+    val metadata: Map<String, String> = emptyMap()
 )
 
 data class SautiSessionDefaults(
@@ -58,7 +64,11 @@ object SautiCallHost {
         val ringOverrides: RingOverrides = RingOverrides(),
         val notificationOverrides: IncomingCallOverrides = IncomingCallOverrides(),
         val autoMuteOnCellularCall: Boolean = false,
-        val sessionDefaults: SautiSessionDefaults = SautiSessionDefaults()
+        val sessionDefaults: SautiSessionDefaults = SautiSessionDefaults(),
+        val onStartCall: suspend (SautiOutgoingRequest) -> SautiSessionTicket? = { null },
+        val onCancelCall: suspend (callId: String) -> Unit = {},
+        val outgoingNoAnswerTimeoutMs: Long = 35_000L,
+        val onOutgoingFailed: () -> Unit = {}
     )
 
     @Volatile

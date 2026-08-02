@@ -10,12 +10,19 @@ import io.sauti.android.incoming.IncomingCallOverrides
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallPresenter
 import io.sauti.android.incoming.SautiIncomingCallRegistry
+import io.sauti.ui.compose.outgoing.SautiOutgoingController
 
 object Sauti {
 
     fun configure(config: SautiCallHost.Config) {
         SautiCallHost.configure(config)
     }
+
+    fun startCall(context: Context, target: String, metadata: Map<String, String> = emptyMap()) =
+        SautiOutgoingController.start(context, target, metadata)
+
+    fun outgoingDeclined(context: Context, callId: String) =
+        SautiOutgoingController.onDeclined(context, callId)
 
     fun presentIncomingCall(context: Context, call: SautiIncomingCall) {
         val overrides = SautiCallHost.optional()?.notificationOverrides ?: IncomingCallOverrides()

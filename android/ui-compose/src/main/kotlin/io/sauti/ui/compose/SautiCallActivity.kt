@@ -25,6 +25,7 @@ import io.sauti.android.SautiCall
 import io.sauti.android.incoming.IncomingCallNotification
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallRegistry
+import io.sauti.android.outgoing.SautiOutgoingCallRegistry
 import io.sauti.android.ring.SautiIncomingRing
 import io.sauti.android.service.CallForegroundService
 import io.sauti.engine.CallPhase
@@ -43,6 +44,9 @@ class SautiCallActivity : ComponentActivity() {
     private var ring: SautiIncomingRing? = null
     private var joinTimeoutJob: Job? = null
     private var renderedPhase: SautiHostPhase = SautiHostPhase.INCOMING
+    private var outgoing: Boolean = false
+    private var outgoingTitle: String = ""
+    private var outgoingFinisher: SautiOutgoingCallRegistry.Finisher? = null
 
     private val accepted = mutableStateOf(false)
     private val sawSession = mutableStateOf(false)
@@ -68,13 +72,14 @@ class SautiCallActivity : ComponentActivity() {
         val incoming = SautiIncomingCall.fromExtras(intent.extras)
         when {
             incoming != null -> setupIncoming(incoming)
+            isOutgoing(intent) -> setupOutgoing(intent)
             isResume(intent) || CallForegroundService.call.value != null -> setupResume()
             else -> {
                 finishAndRemoveTask()
                 return
             }
         }
-        if (accepted.value && !sawSession.value && CallForegroundService.call.value == null && !aborted.value) {
+        if (!outgoing && accepted.value && !sawSession.value && CallForegroundService.call.value == null && !aborted.value) {
             startJoinTimeout()
         }
         registerBackHandler()
@@ -111,6 +116,7 @@ class SautiCallActivity : ComponentActivity() {
         renderedPhase = SautiHostPhase.INCOMING
         incomingCall = incoming
         callId = incoming.callId
+        outgoing = false
         accepted.value = false
         sawSession.value = false
         aborted.value = false
@@ -123,6 +129,20 @@ class SautiCallActivity : ComponentActivity() {
 
     private fun setupResume() {
         accepted.value = true
+    }
+
+    private fun setupOutgoing(intent: Intent) {
+        outgoing = true
+        outgoingTitle = intent.getStringExtra(EXTRA_OUTGOING_TITLE).orEmpty()
+        accepted.value = true
+        val registered = SautiOutgoingCallRegistry.Finisher { runOnUiThread { onOutgoingHostFinish() } }
+        outgoingFinisher = registered
+        SautiOutgoingCallRegistry.registerFinisher(registered)
+    }
+
+    private fun onOutgoingHostFinish() {
+        if (isFinishing) return
+        finishAndRemoveTask()
     }
 
     @Composable
@@ -196,7 +216,11 @@ class SautiCallActivity : ComponentActivity() {
 
     private fun callerName(): String {
         val incoming = incomingCall
-        return if (incoming != null) config.callerNameResolver(incoming) else ""
+        return when {
+            incoming != null -> config.callerNameResolver(incoming)
+            outgoing -> outgoingTitle
+            else -> ""
+        }
     }
 
     private fun onAcceptClicked() {
@@ -336,10 +360,14 @@ class SautiCallActivity : ComponentActivity() {
         joinTimeoutJob?.cancel()
         joinTimeoutJob = null
         if (!isChangingConfigurations) releaseRegistration()
+        outgoingFinisher?.let { SautiOutgoingCallRegistry.unregisterFinisher(it) }
+        outgoingFinisher = null
         super.onDestroy()
     }
 
     private fun isResume(intent: Intent): Boolean = intent.getBooleanExtra(EXTRA_RESUME, false)
+
+    private fun isOutgoing(intent: Intent): Boolean = intent.getBooleanExtra(EXTRA_OUTGOING, false)
 
     private fun applyWakeFlags() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -360,6 +388,8 @@ class SautiCallActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_RESUME = "io.sauti.ui.compose.EXTRA_RESUME"
+        const val EXTRA_OUTGOING = "io.sauti.ui.compose.EXTRA_OUTGOING"
+        const val EXTRA_OUTGOING_TITLE = "io.sauti.ui.compose.EXTRA_OUTGOING_TITLE"
 
         private const val JOIN_TIMEOUT_MS = 20_000L
         private const val ENDED_LINGER_MS = 1_200L
@@ -371,6 +401,13 @@ class SautiCallActivity : ComponentActivity() {
         fun resumeIntent(context: Context): Intent =
             Intent(context, SautiCallActivity::class.java).apply {
                 putExtra(EXTRA_RESUME, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            }
+
+        fun outgoingIntent(context: Context, title: String): Intent =
+            Intent(context, SautiCallActivity::class.java).apply {
+                putExtra(EXTRA_OUTGOING, true)
+                putExtra(EXTRA_OUTGOING_TITLE, title)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
 

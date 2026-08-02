@@ -32,6 +32,6 @@ object RingReducer {
         RingerMode.NORMAL -> RingMode.Incoming(sound = true)
     }
 
-    private fun remotePresent(state: CallState, selfParticipantId: String?): Boolean =
+    fun remotePresent(state: CallState, selfParticipantId: String?): Boolean =
         state.participants.any { selfParticipantId == null || it.participantId != selfParticipantId }
 }
