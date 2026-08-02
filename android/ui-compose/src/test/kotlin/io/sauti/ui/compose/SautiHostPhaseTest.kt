@@ -184,6 +184,62 @@ class SautiHostPhaseTest {
     }
 
     @Test
+    fun outgoingSessionWhileConnectingRendersSolo() {
+        assertEquals(
+            SautiHostScreen.SOLO,
+            resolveHostScreen(SautiHostPhase.CONNECTING, hasSession = true, hasIncoming = false)
+        )
+    }
+
+    @Test
+    fun incomingSessionWhileConnectingRendersConnecting() {
+        assertEquals(
+            SautiHostScreen.CONNECTING,
+            resolveHostScreen(SautiHostPhase.CONNECTING, hasSession = true, hasIncoming = true)
+        )
+    }
+
+    @Test
+    fun incomingWithoutSessionRendersConnecting() {
+        assertEquals(
+            SautiHostScreen.CONNECTING,
+            resolveHostScreen(SautiHostPhase.CONNECTING, hasSession = false, hasIncoming = true)
+        )
+    }
+
+    @Test
+    fun acceptedWithoutSessionRendersConnecting() {
+        assertEquals(
+            SautiHostScreen.CONNECTING,
+            resolveHostScreen(SautiHostPhase.CONNECTING, hasSession = false, hasIncoming = false)
+        )
+    }
+
+    @Test
+    fun inCallRendersSolo() {
+        assertEquals(
+            SautiHostScreen.SOLO,
+            resolveHostScreen(SautiHostPhase.IN_CALL, hasSession = true, hasIncoming = false)
+        )
+    }
+
+    @Test
+    fun incomingRendersIncoming() {
+        assertEquals(
+            SautiHostScreen.INCOMING,
+            resolveHostScreen(SautiHostPhase.INCOMING, hasSession = false, hasIncoming = true)
+        )
+    }
+
+    @Test
+    fun endedRendersEnded() {
+        assertEquals(
+            SautiHostScreen.ENDED,
+            resolveHostScreen(SautiHostPhase.ENDED, hasSession = false, hasIncoming = false)
+        )
+    }
+
+    @Test
     fun acceptToConnectedToLeftFullOrdering() {
         assertEquals(
             SautiHostPhase.INCOMING,

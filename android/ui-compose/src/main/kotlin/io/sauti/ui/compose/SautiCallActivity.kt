@@ -161,11 +161,11 @@ class SautiCallActivity : ComponentActivity() {
             }
         }
         SautiTheme(colors = config.colors, typography = config.typography, strings = config.strings) {
-            when (phase) {
-                SautiHostPhase.INCOMING -> IncomingContent()
-                SautiHostPhase.CONNECTING -> SautiConnectingScreen(callerName = callerName())
-                SautiHostPhase.IN_CALL -> InCallContent(session)
-                SautiHostPhase.ENDED -> SautiConnectingScreen(callerName = callerName())
+            when (resolveHostScreen(phase, session != null, incomingCall != null)) {
+                SautiHostScreen.INCOMING -> IncomingContent()
+                SautiHostScreen.CONNECTING -> SautiConnectingScreen(callerName = callerName())
+                SautiHostScreen.SOLO -> InCallContent(session)
+                SautiHostScreen.ENDED -> SautiConnectingScreen(callerName = callerName())
             }
         }
     }
