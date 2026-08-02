@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "io.sauti"
-version = "0.1.13"
+version = "0.1.14"
 
 android {
     namespace = "io.sauti.android"
