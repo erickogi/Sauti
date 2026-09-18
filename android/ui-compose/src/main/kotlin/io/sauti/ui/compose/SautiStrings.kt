@@ -30,7 +30,15 @@ data class SautiStrings(
     val accept: String = "Accept",
     val decline: String = "Decline",
     val returnToCall: String = "Return to call",
-    val minimize: String = "Minimize"
+    val minimize: String = "Minimize",
+    val overlayPromptTitle: String = "Keep this call handy",
+    val overlayPromptBody: String =
+        "To keep talking while you use other screens, allow a small call bubble to " +
+            "show over other apps. You only need to turn this on once.",
+    val overlayPromptConfirm: String = "Turn on",
+    val overlayPromptDismiss: String = "Not now",
+    val callBarReturn: String = "Tap to return to call",
+    val slideToAnswer: String = "Slide to answer"
 )
 
 val LocalSautiStrings = compositionLocalOf { SautiStrings() }

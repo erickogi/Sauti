@@ -13,6 +13,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -26,6 +29,10 @@ import io.sauti.android.incoming.IncomingCallNotification
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallRegistry
 import io.sauti.android.outgoing.SautiOutgoingCallRegistry
+import io.sauti.android.overlay.DefaultOverlayPermission
+import io.sauti.android.overlay.manageOverlayIntent
+import io.sauti.ui.compose.overlay.OverlayPromptDecision
+import io.sauti.ui.compose.overlay.SautiBubbleOptIn
 import io.sauti.android.ring.SautiIncomingRing
 import io.sauti.android.service.CallForegroundService
 import io.sauti.engine.CallPhase
@@ -47,6 +54,13 @@ class SautiCallActivity : ComponentActivity() {
     private var outgoing: Boolean = false
     private var outgoingTitle: String = ""
     private var outgoingFinisher: SautiOutgoingCallRegistry.Finisher? = null
+    private var overlayPromptDismissed: Boolean = false
+    private val showOverlayPrompt = mutableStateOf(false)
+
+    private val overlayPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            moveTaskToBack(true)
+        }
 
     private val accepted = mutableStateOf(false)
     private val sawSession = mutableStateOf(false)
@@ -69,6 +83,8 @@ class SautiCallActivity : ComponentActivity() {
         accepted.value = savedInstanceState?.getBoolean(STATE_ACCEPTED) ?: false
         sawSession.value = savedInstanceState?.getBoolean(STATE_SAW_SESSION) ?: false
         aborted.value = savedInstanceState?.getBoolean(STATE_ABORTED) ?: false
+        overlayPromptDismissed = savedInstanceState?.getBoolean(STATE_OVERLAY_DISMISSED) ?: false
+        showOverlayPrompt.value = savedInstanceState?.getBoolean(STATE_OVERLAY_PROMPT) ?: false
         val incoming = SautiIncomingCall.fromExtras(intent.extras)
         when {
             incoming != null -> setupIncoming(incoming)
@@ -120,6 +136,8 @@ class SautiCallActivity : ComponentActivity() {
         accepted.value = false
         sawSession.value = false
         aborted.value = false
+        overlayPromptDismissed = false
+        showOverlayPrompt.value = false
         val registered = SautiIncomingCallRegistry.Finisher { runOnUiThread { onRemoteFinish() } }
         finisher = registered
         SautiIncomingCallRegistry.register(incoming.callId, registered)
@@ -187,17 +205,49 @@ class SautiCallActivity : ComponentActivity() {
                 SautiHostScreen.SOLO -> InCallContent(session)
                 SautiHostScreen.ENDED -> SautiConnectingScreen(callerName = callerName())
             }
+            if (showOverlayPrompt.value) {
+                val custom = config.overlayPromptContent
+                if (custom != null) {
+                    custom({ onOverlayPromptConfirm() }, { onOverlayPromptDismiss() })
+                } else {
+                    OverlayPermissionDialog(
+                        strings = config.strings,
+                        onConfirm = { onOverlayPromptConfirm() },
+                        onDismiss = { onOverlayPromptDismiss() }
+                    )
+                }
+            }
         }
+    }
+
+    @Composable
+    private fun OverlayPermissionDialog(
+        strings: SautiStrings,
+        onConfirm: () -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(strings.overlayPromptTitle) },
+            text = { Text(strings.overlayPromptBody) },
+            confirmButton = {
+                TextButton(onClick = onConfirm) { Text(strings.overlayPromptConfirm) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(strings.overlayPromptDismiss) }
+            }
+        )
     }
 
     @Composable
     private fun IncomingContent() {
         val incoming = incomingCall ?: return
         SautiIncomingCallScreen(
-            callerName = config.callerNameResolver(incoming),
+            callerName = config.callerNameResolver(incoming).ifBlank { hostAppCallerLabel(this@SautiCallActivity) },
             colors = config.colors,
             typography = config.typography,
             strings = config.strings,
+            requiresSlide = config.incomingRequiresSlide,
             onAccept = { onAcceptClicked() },
             onDecline = { onDeclineClicked() }
         )
@@ -217,7 +267,7 @@ class SautiCallActivity : ComponentActivity() {
     private fun callerName(): String {
         val incoming = incomingCall
         return when {
-            incoming != null -> config.callerNameResolver(incoming)
+            incoming != null -> config.callerNameResolver(incoming).ifBlank { hostAppCallerLabel(this@SautiCallActivity) }
             outgoing -> outgoingTitle
             else -> ""
         }
@@ -252,12 +302,15 @@ class SautiCallActivity : ComponentActivity() {
         startJoinTimeout()
         requestCellularStateIfEnabled()
         val onAccept = config.onAccept
+        val provider = config.tokenProvider
         val onAfterAccept = config.onAfterAccept
         val defaults = config.sessionDefaults
         val autoMute = config.autoMuteOnCellularCall
         val appContext = applicationContext
         SautiCallHost.scope.launch {
-            val ticket = runCatching { onAccept(incoming) }.getOrNull() ?: return@launch
+            val ticket = runCatching {
+                resolveTicket(provider, SautiTokenRequest.Accept(incoming)) { onAccept(incoming) }
+            }.getOrNull() ?: return@launch
             runCatching {
                 SautiHostJoin.join(appContext, ticket, defaults, autoMute)
                 onAfterAccept(incoming)
@@ -297,6 +350,11 @@ class SautiCallActivity : ComponentActivity() {
     }
 
     private fun onEndClicked() {
+        val id = callId
+        if (id != null) {
+            val onEndCall = config.onEndCall
+            SautiCallHost.scope.launch { runCatching { onEndCall(id) } }
+        }
         CallForegroundService.stop(this)
     }
 
@@ -308,12 +366,37 @@ class SautiCallActivity : ComponentActivity() {
     }
 
     private fun minimize() {
+        val shouldPrompt = OverlayPromptDecision.shouldPrompt(
+            optedIn = SautiBubbleOptIn.enabled,
+            granted = DefaultOverlayPermission(this).granted(),
+            dismissed = overlayPromptDismissed
+        )
+        if (shouldPrompt) {
+            showOverlayPrompt.value = true
+            return
+        }
+        moveTaskToBack(true)
+    }
+
+    private fun onOverlayPromptConfirm() {
+        showOverlayPrompt.value = false
+        runCatching { overlayPermissionLauncher.launch(manageOverlayIntent(this)) }
+            .onFailure { moveTaskToBack(true) }
+    }
+
+    private fun onOverlayPromptDismiss() {
+        showOverlayPrompt.value = false
+        overlayPromptDismissed = true
         moveTaskToBack(true)
     }
 
     private fun registerBackHandler() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (showOverlayPrompt.value) {
+                    onOverlayPromptDismiss()
+                    return
+                }
                 when (renderedPhase) {
                     SautiHostPhase.INCOMING -> onDeclineClicked()
                     SautiHostPhase.CONNECTING -> minimize()
@@ -348,6 +431,8 @@ class SautiCallActivity : ComponentActivity() {
         outState.putBoolean(STATE_ACCEPTED, accepted.value)
         outState.putBoolean(STATE_SAW_SESSION, sawSession.value)
         outState.putBoolean(STATE_ABORTED, aborted.value)
+        outState.putBoolean(STATE_OVERLAY_DISMISSED, overlayPromptDismissed)
+        outState.putBoolean(STATE_OVERLAY_PROMPT, showOverlayPrompt.value)
     }
 
     override fun onStop() {
@@ -396,6 +481,8 @@ class SautiCallActivity : ComponentActivity() {
         private const val STATE_ACCEPTED = "io.sauti.ui.compose.STATE_ACCEPTED"
         private const val STATE_SAW_SESSION = "io.sauti.ui.compose.STATE_SAW_SESSION"
         private const val STATE_ABORTED = "io.sauti.ui.compose.STATE_ABORTED"
+        private const val STATE_OVERLAY_DISMISSED = "io.sauti.ui.compose.STATE_OVERLAY_DISMISSED"
+        private const val STATE_OVERLAY_PROMPT = "io.sauti.ui.compose.STATE_OVERLAY_PROMPT"
         private const val RESUME_REQUEST = 0x5A08
 
         fun resumeIntent(context: Context): Intent =

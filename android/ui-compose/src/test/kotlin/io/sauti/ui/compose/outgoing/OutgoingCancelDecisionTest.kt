@@ -45,4 +45,19 @@ class OutgoingCancelDecisionTest {
     fun noAnswerDoesNotCancelWhenNotAnUnconnectedMatch() {
         assertFalse(OutgoingCancelDecision.cancelOnNoAnswer(peerJoined = false, callKnown = true, unconnectedMatch = false))
     }
+
+    @Test
+    fun endsWhenAConnectedOutgoingCallSessionGoesAway() {
+        assertTrue(OutgoingCancelDecision.endOnSessionGone(peerJoined = true, tearingDown = false))
+    }
+
+    @Test
+    fun endsEvenWhenTearingDownAfterConnect() {
+        assertTrue(OutgoingCancelDecision.endOnSessionGone(peerJoined = true, tearingDown = true))
+    }
+
+    @Test
+    fun doesNotEndWhenNeverConnected() {
+        assertFalse(OutgoingCancelDecision.endOnSessionGone(peerJoined = false, tearingDown = false))
+    }
 }

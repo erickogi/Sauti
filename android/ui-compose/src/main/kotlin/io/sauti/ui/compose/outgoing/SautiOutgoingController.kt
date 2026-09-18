@@ -10,6 +10,8 @@ import io.sauti.ui.compose.SautiCallHost
 import io.sauti.ui.compose.SautiHostJoin
 import io.sauti.ui.compose.SautiOutgoingRequest
 import io.sauti.ui.compose.SautiSessionTicket
+import io.sauti.ui.compose.SautiTokenRequest
+import io.sauti.ui.compose.resolveTicket
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -60,7 +62,11 @@ internal object SautiOutgoingController {
         }
         armWatchdog(app, config)
         SautiCallHost.scope.launch {
-            val ticket = runCatching { config.onStartCall(SautiOutgoingRequest(target, metadata)) }.getOrNull()
+            val ticket = runCatching {
+                resolveTicket(config.tokenProvider, SautiTokenRequest.Outgoing(target, metadata)) {
+                    config.onStartCall(SautiOutgoingRequest(target, metadata))
+                }
+            }.getOrNull()
             if (ticket == null) {
                 failStart(app, config)
                 return@launch
@@ -165,11 +171,16 @@ internal object SautiOutgoingController {
         val record = live ?: return
         val cancel = OutgoingCancelDecision.cancelOnSessionGone(record.peerJoined, record.tearingDown)
         val callId = record.callId
+        val endedAfterConnect = OutgoingCancelDecision.endOnSessionGone(record.peerJoined, record.tearingDown)
         SautiOutgoingCallRegistry.finishHost()
         reset()
         if (cancel) {
             SautiCallHost.scope.launch {
                 runCatching { SautiCallHost.optional()?.onCancelCall?.invoke(callId) }
+            }
+        } else if (endedAfterConnect) {
+            SautiCallHost.scope.launch {
+                runCatching { SautiCallHost.optional()?.onEndCall?.invoke(callId) }
             }
         }
     }

@@ -31,12 +31,18 @@ fun installSautiCallBubble(
     optedIn = optedIn
 )
 
+object SautiBubbleOptIn {
+    @Volatile
+    var enabled: Boolean = false
+}
+
 fun installSautiCallBubble(
     application: Application,
     onReturn: () -> Unit,
     host: BubbleOverlayHost,
     optedIn: Boolean
 ) {
+    SautiBubbleOptIn.enabled = optedIn
     val foreground = ProcessForegroundFlow()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     var bubble: SautiCallBubble? = null

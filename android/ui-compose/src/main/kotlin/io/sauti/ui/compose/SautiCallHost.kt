@@ -1,12 +1,15 @@
 package io.sauti.ui.compose
 
 import android.Manifest
+import android.content.Context
+import androidx.compose.runtime.Composable
 import io.sauti.android.audio.AudioDevice
 import io.sauti.android.incoming.IncomingCallOverrides
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.ring.RingOverrides
 import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.QoeSample
+import io.sauti.ui.compose.push.SautiPushKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,13 +44,15 @@ data class SautiSessionDefaults(
 fun defaultCallerName(call: SautiIncomingCall): String {
     val fromField = call.callerName?.takeIf { it.isNotBlank() }
     val fromMetadata = call.metadata["name"]?.takeIf { it.isNotBlank() }
-    return fromField ?: fromMetadata ?: shortCallerId(call.callId)
+    return fromField ?: fromMetadata ?: ""
 }
 
-private fun shortCallerId(callId: String): String =
-    if (callId.length <= CALLER_ID_LENGTH) callId else callId.take(CALLER_ID_LENGTH)
-
-private const val CALLER_ID_LENGTH = 8
+internal fun hostAppCallerLabel(context: Context): String {
+    val label = runCatching {
+        context.applicationInfo.loadLabel(context.packageManager).toString().trim()
+    }.getOrNull().orEmpty()
+    return if (label.isBlank()) "Call" else "$label Call"
+}
 
 object SautiCallHost {
 
@@ -67,8 +72,13 @@ object SautiCallHost {
         val sessionDefaults: SautiSessionDefaults = SautiSessionDefaults(),
         val onStartCall: suspend (SautiOutgoingRequest) -> SautiSessionTicket? = { null },
         val onCancelCall: suspend (callId: String) -> Unit = {},
+        val onEndCall: suspend (callId: String) -> Unit = {},
         val outgoingNoAnswerTimeoutMs: Long = 35_000L,
-        val onOutgoingFailed: () -> Unit = {}
+        val onOutgoingFailed: () -> Unit = {},
+        val overlayPromptContent: (@Composable (onConfirm: () -> Unit, onDismiss: () -> Unit) -> Unit)? = null,
+        val incomingRequiresSlide: Boolean = true,
+        val pushKeys: SautiPushKeys = SautiPushKeys(),
+        val tokenProvider: SautiTokenProvider? = null
     )
 
     @Volatile

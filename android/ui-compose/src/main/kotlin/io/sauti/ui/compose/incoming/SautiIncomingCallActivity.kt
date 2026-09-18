@@ -13,6 +13,7 @@ import io.sauti.android.incoming.IncomingCallNotification
 import io.sauti.android.incoming.SautiIncomingCall
 import io.sauti.android.incoming.SautiIncomingCallRegistry
 import io.sauti.android.ring.RingOverrides
+import io.sauti.ui.compose.hostAppCallerLabel
 
 class SautiIncomingCallActivity : ComponentActivity() {
 
@@ -93,13 +94,6 @@ class SautiIncomingCallActivity : ComponentActivity() {
     private fun displayName(call: SautiIncomingCall): String {
         val fromField = call.callerName?.takeIf { it.isNotBlank() }
         val fromMetadata = call.metadata["name"]?.takeIf { it.isNotBlank() }
-        return fromField ?: fromMetadata ?: shortId(call.callId)
-    }
-
-    private fun shortId(callId: String): String =
-        if (callId.length <= SHORT_ID_LENGTH) callId else callId.take(SHORT_ID_LENGTH)
-
-    private companion object {
-        private const val SHORT_ID_LENGTH = 8
+        return fromField ?: fromMetadata ?: hostAppCallerLabel(this)
     }
 }

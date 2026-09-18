@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.sauti"
-version = "0.1.15"
+version = "0.1.23"
 
 android {
     namespace = "io.sauti.ui.compose"
@@ -54,6 +54,7 @@ android {
 
 dependencies {
     api(project(":android"))
+    implementation(libs.androidx.core.ktx)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
