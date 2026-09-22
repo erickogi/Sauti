@@ -10,7 +10,7 @@ This guide covers the **batteries-included host** (`io.sauti:ui-compose`). If yo
 render your own call UI instead, skip to [Building your own UI](#12-building-your-own-ui-instead)
 and the low-level `SautiClient` surface in [`INTEGRATION.md` §4](./INTEGRATION.md).
 
-Current published version: **`0.1.22`**.
+Current published version: **`0.1.24`**.
 
 ## Contents
 
@@ -64,9 +64,9 @@ repositories {
 }
 
 dependencies {
-    implementation("io.sauti:android:0.1.22")     // the call engine + Android runtime
-    implementation("io.sauti:ui-compose:0.1.22")  // the ready-made host + UI
-    // implementation("io.sauti:rx2:0.1.22")       // only if you are not on coroutines
+    implementation("io.sauti:android:0.1.24")     // the call engine + Android runtime
+    implementation("io.sauti:ui-compose:0.1.24")  // the ready-made host + UI
+    // implementation("io.sauti:rx2:0.1.24")       // only if you are not on coroutines
 }
 ```
 
@@ -288,6 +288,39 @@ full-screen incoming UI, or a heads-up notification when an Activity can't launc
 background), `Sauti.cancelIncomingCall(context, callId)`, and
 `Sauti.outgoingDeclined(context, callId)`.
 
+### Building the marker yourself: `SautiPushBuilder`
+
+`SautiPushParser` reads a call marker; `SautiPushBuilder` writes one. They are symmetric
+inverses over the same `SautiPushKeys` envelope, so if you deliver call invites over a
+channel you already run (your own socket, an in-app message topic) rather than FCM, build
+the marker on the caller and parse it on the callee:
+
+```kotlin
+// Caller: build the marker and send it over your own channel.
+val marker = SautiPushBuilder.encode(
+    SautiPushCommand.Incoming(
+        SautiIncomingCall(
+            callId = callId,
+            roomId = roomId,
+            callerName = callerName,
+            metadata = linkedMapOf("yourField" to value)   // opaque adopter fields
+        )
+    )
+)
+yourChannel.send(marker)
+
+// Callee: parse it back and present.
+val command = SautiPushParser.parse(marker)
+Sauti.presentIncomingCall(context, command.call)
+```
+
+`encode` produces the same `event_name` / `payload` envelope `handlePush` expects, so a
+marker built this way is interchangeable with an FCM call push. Anything you put in
+`metadata` travels through `SautiIncomingCall.metadata` untouched; the library never reads
+or names adopter-specific fields, so a trip id, a thread id, or a caller account id ride as
+opaque metadata and reach your `onAccept` and your callee code unchanged. Pass a
+non-default `SautiPushKeys` to both `encode` and `parse` if your envelope keys differ.
+
 ## 8. Slide-to-answer
 
 With `incomingRequiresSlide = true` (the default) the incoming screen presents a
@@ -472,7 +505,7 @@ back to the foreground.
 The four Android artifacts version together — keep `engine`, `android`, `rx2`, and
 `ui-compose` on the **same** version. During library development they resolve from
 `mavenLocal()` after a `./gradlew publishToMavenLocal`; releases go through JitPack. The
-current published version is **`0.1.22`**.
+current published version is **`0.1.24`**.
 
 ## 15. Adoption checklist
 
