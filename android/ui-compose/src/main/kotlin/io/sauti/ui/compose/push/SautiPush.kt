@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import org.json.JSONObject
 
 data class SautiPushKeys(
     val eventKey: String = "event_name",
@@ -64,5 +65,42 @@ object SautiPushParser {
                 (element as? JsonPrimitive)?.contentOrNull?.let { key to it }
             }.toMap()
         }.getOrDefault(emptyMap())
+    }
+}
+
+object SautiPushBuilder {
+
+    fun build(command: SautiPushCommand, keys: SautiPushKeys = SautiPushKeys()): Map<String, String> =
+        mapOf(keys.eventKey to eventName(command, keys), keys.payloadKey to payload(command, keys))
+
+    fun encode(command: SautiPushCommand, keys: SautiPushKeys = SautiPushKeys()): String =
+        JSONObject()
+            .put(keys.eventKey, eventName(command, keys))
+            .put(keys.payloadKey, payload(command, keys))
+            .toString()
+
+    private fun eventName(command: SautiPushCommand, keys: SautiPushKeys): String = when (command) {
+        is SautiPushCommand.Incoming -> keys.incomingEvent
+        is SautiPushCommand.Cancelled -> keys.cancelledEvent
+        is SautiPushCommand.Declined -> keys.declinedEvent
+    }
+
+    private fun payload(command: SautiPushCommand, keys: SautiPushKeys): String {
+        val payload = JSONObject()
+        when (command) {
+            is SautiPushCommand.Incoming -> {
+                payload.put(keys.callIdKey, command.call.callId)
+                payload.put(keys.roomIdKey, command.call.roomId)
+                command.call.callerName?.let { payload.put(keys.callerNameKey, it) }
+                command.call.metadata.forEach { (key, value) ->
+                    if (key != keys.callIdKey && key != keys.roomIdKey && key != keys.callerNameKey) {
+                        payload.put(key, value)
+                    }
+                }
+            }
+            is SautiPushCommand.Cancelled -> payload.put(keys.callIdKey, command.callId)
+            is SautiPushCommand.Declined -> payload.put(keys.callIdKey, command.callId)
+        }
+        return payload.toString()
     }
 }
