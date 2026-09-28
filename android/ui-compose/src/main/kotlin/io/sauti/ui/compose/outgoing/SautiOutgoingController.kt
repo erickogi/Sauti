@@ -142,6 +142,7 @@ internal object SautiOutgoingController {
         val record = live ?: return
         if (record.peerJoined) return
         record.peerJoined = true
+        record.ringer?.stop()
         SautiOutgoingCallRegistry.markConnected()
         watchdog?.cancel()
         watchdog = null
