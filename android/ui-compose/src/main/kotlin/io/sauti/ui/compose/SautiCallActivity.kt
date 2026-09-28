@@ -125,6 +125,7 @@ class SautiCallActivity : ComponentActivity() {
             }
             isResume(intent) && CallForegroundService.call.value != null -> {
                 setIntent(intent)
+                cancelMissedCallTimeout()
                 stopRing()
                 accepted.value = true
             }
@@ -303,6 +304,7 @@ class SautiCallActivity : ComponentActivity() {
 
     private fun onAcceptClicked() {
         val incoming = incomingCall ?: return
+        cancelMissedCallTimeout()
         if (permissionsGranted()) {
             beginAccept(incoming)
         } else {
