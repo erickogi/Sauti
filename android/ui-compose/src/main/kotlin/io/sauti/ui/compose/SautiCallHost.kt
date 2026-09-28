@@ -59,6 +59,7 @@ object SautiCallHost {
     data class Config(
         val onAccept: suspend (SautiIncomingCall) -> SautiSessionTicket?,
         val onDecline: suspend (SautiIncomingCall) -> Unit,
+        val onBusyDecline: (suspend (SautiIncomingCall) -> Unit)? = null,
         val callerNameResolver: (SautiIncomingCall) -> String = ::defaultCallerName,
         val colors: SautiColors? = null,
         val typography: SautiTypography? = null,

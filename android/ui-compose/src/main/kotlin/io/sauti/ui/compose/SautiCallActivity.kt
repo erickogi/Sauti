@@ -36,6 +36,7 @@ import io.sauti.ui.compose.overlay.SautiBubbleOptIn
 import io.sauti.android.ring.SautiIncomingRing
 import io.sauti.android.service.CallForegroundService
 import io.sauti.engine.CallPhase
+import io.sauti.ui.compose.incoming.IncomingBusyDecision
 import io.sauti.ui.compose.incoming.SautiIncomingCallScreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -104,15 +105,36 @@ class SautiCallActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
         val incoming = SautiIncomingCall.fromExtras(intent.extras)
         when {
-            incoming != null && incoming.callId != callId -> rebindIncoming(incoming)
+            incoming != null && incoming.callId != callId -> {
+                val busy = IncomingBusyDecision.declineBusy(
+                    accepted = accepted.value,
+                    outgoing = outgoing,
+                    hasActiveSession = CallForegroundService.call.value != null,
+                    newCallId = incoming.callId,
+                    currentCallId = callId
+                )
+                if (busy) {
+                    autoDeclineBusy(incoming)
+                } else {
+                    setIntent(intent)
+                    rebindIncoming(incoming)
+                }
+            }
             isResume(intent) && CallForegroundService.call.value != null -> {
+                setIntent(intent)
                 stopRing()
                 accepted.value = true
             }
         }
+    }
+
+    private fun autoDeclineBusy(incoming: SautiIncomingCall) {
+        IncomingCallNotification.cancel(this, incoming.callId)
+        SautiIncomingCallRegistry.release(incoming.callId)
+        val handler = config.onBusyDecline ?: config.onDecline
+        SautiCallHost.scope.launch { runCatching { handler(incoming) } }
     }
 
     private fun setupIncoming(incoming: SautiIncomingCall) {
