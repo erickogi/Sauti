@@ -92,6 +92,36 @@ class AudioSessionCoordinatorTest {
         assertTrue(coordinator.availableDevices.value.contains(AudioDevice.SPEAKER))
     }
 
+    @Test
+    fun removedBluetoothFallsBackToEarpiece() {
+        val coordinator = AudioSessionCoordinator(context)
+        coordinator.start()
+        coordinator.selectDevice(AudioDevice.BLUETOOTH)
+        assertEquals(AudioDevice.BLUETOOTH, coordinator.currentDevice.value)
+
+        invokeReconcile(coordinator)
+
+        assertEquals(AudioDevice.EARPIECE, coordinator.currentDevice.value)
+    }
+
+    @Test
+    fun explicitSpeakerSurvivesReconcile() {
+        val coordinator = AudioSessionCoordinator(context)
+        coordinator.start()
+        coordinator.selectDevice(AudioDevice.SPEAKER)
+        assertEquals(AudioDevice.SPEAKER, coordinator.currentDevice.value)
+
+        invokeReconcile(coordinator)
+
+        assertEquals(AudioDevice.SPEAKER, coordinator.currentDevice.value)
+    }
+
+    private fun invokeReconcile(coordinator: AudioSessionCoordinator) {
+        val method = AudioSessionCoordinator::class.java.getDeclaredMethod("reconcileRouting")
+        method.isAccessible = true
+        method.invoke(coordinator)
+    }
+
     private fun focusListenerOf(coordinator: AudioSessionCoordinator): AudioManager.OnAudioFocusChangeListener {
         val field = AudioSessionCoordinator::class.java.getDeclaredField("focusListener")
         field.isAccessible = true
