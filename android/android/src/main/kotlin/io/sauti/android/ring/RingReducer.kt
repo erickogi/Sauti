@@ -33,5 +33,5 @@ object RingReducer {
     }
 
     fun remotePresent(state: CallState, selfParticipantId: String?): Boolean =
-        state.participants.any { selfParticipantId == null || it.participantId != selfParticipantId }
+        selfParticipantId != null && state.participants.any { it.participantId != selfParticipantId }
 }

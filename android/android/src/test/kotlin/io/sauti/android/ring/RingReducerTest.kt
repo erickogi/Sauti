@@ -47,7 +47,7 @@ class RingReducerTest {
         val mode = RingReducer.reduce(
             CallRole.OUTGOING,
             state(CallPhase.CONNECTED, listOf(participant("remote"))),
-            null,
+            "self",
             RingerMode.NORMAL
         )
         assertEquals(RingMode.Silent, mode)
@@ -130,13 +130,13 @@ class RingReducerTest {
     }
 
     @Test
-    fun nullSelfTreatsAnyParticipantAsRemote() {
+    fun nullSelfConnectedRingsBack() {
         val mode = RingReducer.reduce(
             CallRole.OUTGOING,
             state(CallPhase.CONNECTED, listOf(participant("self"))),
             null,
             RingerMode.NORMAL
         )
-        assertEquals(RingMode.Silent, mode)
+        assertEquals(RingMode.Ringback, mode)
     }
 }

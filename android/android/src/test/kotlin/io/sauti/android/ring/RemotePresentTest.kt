@@ -39,7 +39,7 @@ class RemotePresentTest {
     }
 
     @Test
-    fun nullSelfTreatsAnyParticipantAsRemote() {
-        assertTrue(RingReducer.remotePresent(state("self"), null))
+    fun nullSelfHasNoRemote() {
+        assertFalse(RingReducer.remotePresent(state("self"), null))
     }
 }

@@ -59,7 +59,7 @@ class SautiRingerTest {
         val ringer = SautiRinger(backgroundScope, ringback, ringtone, vibrator, FakeRingerModeProvider(RingerMode.NORMAL))
         val flow = MutableStateFlow(CallState(phase = CallPhase.CONNECTING))
 
-        ringer.start(CallRole.OUTGOING, flow)
+        ringer.start(CallRole.OUTGOING, flow, "self")
         runCurrent()
         assertEquals(1, starts(ringback.events))
 
@@ -147,7 +147,7 @@ class SautiRingerTest {
         val ringer = SautiRinger(backgroundScope, ringback, FakeRingtonePlayer(), FakeCallVibrator(), FakeRingerModeProvider(RingerMode.NORMAL))
         val flow = MutableStateFlow(CallState(phase = CallPhase.CONNECTING))
 
-        ringer.start(CallRole.OUTGOING, flow)
+        ringer.start(CallRole.OUTGOING, flow, "self")
         runCurrent()
         flow.value = CallState(phase = CallPhase.CONNECTED, participants = listOf(participant("remote")))
         runCurrent()
