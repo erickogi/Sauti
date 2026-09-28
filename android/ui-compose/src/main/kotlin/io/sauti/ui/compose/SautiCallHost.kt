@@ -60,6 +60,8 @@ object SautiCallHost {
         val onAccept: suspend (SautiIncomingCall) -> SautiSessionTicket?,
         val onDecline: suspend (SautiIncomingCall) -> Unit,
         val onBusyDecline: (suspend (SautiIncomingCall) -> Unit)? = null,
+        val incomingRingTimeoutMs: Long = 45_000L,
+        val onMissedCall: suspend (SautiIncomingCall) -> Unit = {},
         val callerNameResolver: (SautiIncomingCall) -> String = ::defaultCallerName,
         val colors: SautiColors? = null,
         val typography: SautiTypography? = null,

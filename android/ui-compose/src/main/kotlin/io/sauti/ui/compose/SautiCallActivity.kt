@@ -51,6 +51,7 @@ class SautiCallActivity : ComponentActivity() {
     private var finisher: SautiIncomingCallRegistry.Finisher? = null
     private var ring: SautiIncomingRing? = null
     private var joinTimeoutJob: Job? = null
+    private var missedCallJob: Job? = null
     private var renderedPhase: SautiHostPhase = SautiHostPhase.INCOMING
     private var outgoing: Boolean = false
     private var outgoingTitle: String = ""
@@ -144,7 +145,10 @@ class SautiCallActivity : ComponentActivity() {
         val registered = SautiIncomingCallRegistry.Finisher { runOnUiThread { onRemoteFinish() } }
         finisher = registered
         SautiIncomingCallRegistry.register(incoming.callId, registered)
-        if (!accepted.value) startRing()
+        if (!accepted.value) {
+            startRing()
+            startMissedCallTimeout()
+        }
     }
 
     private fun rebindIncoming(incoming: SautiIncomingCall) {
@@ -165,6 +169,7 @@ class SautiCallActivity : ComponentActivity() {
         SautiIncomingCallRegistry.register(incoming.callId, registered)
         IncomingCallNotification.cancel(this, incoming.callId)
         startRing()
+        startMissedCallTimeout()
     }
 
     private fun setupResume() {
@@ -199,6 +204,7 @@ class SautiCallActivity : ComponentActivity() {
                 sawSession.value = true
                 joinTimeoutJob?.cancel()
                 joinTimeoutJob = null
+                cancelMissedCallTimeout()
             }
         }
         val phase = if (aborted.value) {
@@ -320,6 +326,7 @@ class SautiCallActivity : ComponentActivity() {
     private fun beginAccept(incoming: SautiIncomingCall) {
         if (accepted.value) return
         accepted.value = true
+        cancelMissedCallTimeout()
         stopRing()
         startJoinTimeout()
         requestCellularStateIfEnabled()
@@ -361,8 +368,34 @@ class SautiCallActivity : ComponentActivity() {
         aborted.value = true
     }
 
+    private fun startMissedCallTimeout() {
+        missedCallJob?.cancel()
+        missedCallJob = lifecycleScope.launch {
+            delay(config.incomingRingTimeoutMs)
+            onMissedCall()
+        }
+    }
+
+    private fun cancelMissedCallTimeout() {
+        missedCallJob?.cancel()
+        missedCallJob = null
+    }
+
+    private fun onMissedCall() {
+        cancelMissedCallTimeout()
+        stopRing()
+        val incoming = incomingCall
+        releaseRegistration()
+        if (incoming != null) {
+            val onMissed = config.onMissedCall
+            SautiCallHost.scope.launch { runCatching { onMissed(incoming) } }
+        }
+        if (!isFinishing) finishAndRemoveTask()
+    }
+
     private fun onDeclineClicked() {
         val incoming = incomingCall
+        cancelMissedCallTimeout()
         stopRing()
         if (incoming != null) {
             val onDecline = config.onDecline
@@ -383,6 +416,7 @@ class SautiCallActivity : ComponentActivity() {
     private fun onRemoteFinish() {
         if (accepted.value) return
         if (isFinishing) return
+        cancelMissedCallTimeout()
         stopRing()
         finishAndRemoveTask()
     }
@@ -466,6 +500,7 @@ class SautiCallActivity : ComponentActivity() {
         stopRing()
         joinTimeoutJob?.cancel()
         joinTimeoutJob = null
+        cancelMissedCallTimeout()
         if (!isChangingConfigurations) releaseRegistration()
         outgoingFinisher?.let { SautiOutgoingCallRegistry.unregisterFinisher(it) }
         outgoingFinisher = null
