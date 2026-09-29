@@ -10,7 +10,7 @@ This guide covers the **batteries-included host** (`io.sauti:ui-compose`). If yo
 render your own call UI instead, skip to [Building your own UI](#12-building-your-own-ui-instead)
 and the low-level `SautiClient` surface in [`INTEGRATION.md` §4](./INTEGRATION.md).
 
-Current published version: **`0.1.24`**.
+Current published version: **`0.1.25`**.
 
 ## Contents
 
@@ -64,9 +64,9 @@ repositories {
 }
 
 dependencies {
-    implementation("io.sauti:android:0.1.24")     // the call engine + Android runtime
-    implementation("io.sauti:ui-compose:0.1.24")  // the ready-made host + UI
-    // implementation("io.sauti:rx2:0.1.24")       // only if you are not on coroutines
+    implementation("io.sauti:android:0.1.25")     // the call engine + Android runtime
+    implementation("io.sauti:ui-compose:0.1.25")  // the ready-made host + UI
+    // implementation("io.sauti:rx2:0.1.25")       // only if you are not on coroutines
 }
 ```
 
@@ -159,6 +159,9 @@ The full surface:
 |---|---|---|---|
 | `onAccept` | `suspend (SautiIncomingCall) -> SautiSessionTicket?` | **required** | Callee accepted; return a ticket to join, `null` to abort. |
 | `onDecline` | `suspend (SautiIncomingCall) -> Unit` | **required** | Callee declined; tell your backend. |
+| `onBusyDecline` | `(suspend (SautiIncomingCall) -> Unit)?` | `null` | A second call arriving while one is already live is auto-declined; hook to tell your backend. |
+| `incomingRingTimeoutMs` | `Long` | `45_000` | Ring timeout before an unanswered incoming call is treated as missed. |
+| `onMissedCall` | `suspend (SautiIncomingCall) -> Unit` | `{}` | Incoming call was never answered within `incomingRingTimeoutMs`. |
 | `onStartCall` | `suspend (SautiOutgoingRequest) -> SautiSessionTicket?` | `{ null }` | Caller dialed via `Sauti.startCall`; mint the ticket, `null` to abort. |
 | `onCancelCall` | `suspend (callId) -> Unit` | `{}` | Caller cancelled a still-**ringing** outgoing call. |
 | `onEndCall` | `suspend (callId) -> Unit` | `{}` | Either side ended a **connected** call. |
@@ -505,7 +508,7 @@ back to the foreground.
 The four Android artifacts version together — keep `engine`, `android`, `rx2`, and
 `ui-compose` on the **same** version. During library development they resolve from
 `mavenLocal()` after a `./gradlew publishToMavenLocal`; releases go through JitPack. The
-current published version is **`0.1.24`**.
+current published version is **`0.1.25`**.
 
 ## 15. Adoption checklist
 

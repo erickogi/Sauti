@@ -916,6 +916,9 @@ The full `SautiCallHost.Config` surface:
 |---|---|---|---|
 | `onAccept` | `suspend (SautiIncomingCall) -> SautiSessionTicket?` | required | Callee accepted; return a ticket to join, or `null` to abort. |
 | `onDecline` | `suspend (SautiIncomingCall) -> Unit` | required | Callee declined; tell your backend. |
+| `onBusyDecline` | `(suspend (SautiIncomingCall) -> Unit)?` | `null` | A second call arriving while one is already live is auto-declined; hook to tell your backend. |
+| `incomingRingTimeoutMs` | `Long` | `45_000` | Ring timeout before an unanswered incoming call is treated as missed. |
+| `onMissedCall` | `suspend (SautiIncomingCall) -> Unit` | `{}` | Incoming call was never answered within `incomingRingTimeoutMs`. |
 | `onStartCall` | `suspend (SautiOutgoingRequest) -> SautiSessionTicket?` | `{ null }` | Caller dialed via `Sauti.startCall`; mint the ticket, or `null` to abort. |
 | `onCancelCall` | `suspend (callId) -> Unit` | `{}` | Caller cancelled a still-ringing outgoing call. |
 | `onEndCall` | `suspend (callId) -> Unit` | `{}` | Either side ended a **connected** call; settle backend state. |
