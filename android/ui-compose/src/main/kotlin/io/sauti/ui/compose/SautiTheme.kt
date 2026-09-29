@@ -23,7 +23,16 @@ data class SautiColors(
     val onDanger: Color,
     val qualityGood: Color,
     val qualityFair: Color,
-    val qualityPoor: Color
+    val qualityPoor: Color,
+    val controlIdleBackground: Color = Color(0xFFF1F1F1),
+    val controlIdleContent: Color = accent,
+    val controlActiveBackground: Color = Color(0xFFE3FFF1),
+    val controlActiveContent: Color = Color(0xFF0CA67D),
+    val positive: Color = Color(0xFF0CD39F),
+    val onPositive: Color = Color(0xFFFFFFFF),
+    val onAccent: Color = Color(0xFFFFFFFF),
+    val callBar: Color = positive,
+    val onCallBar: Color = onPositive
 ) {
     fun colorFor(quality: Quality): Color = when (quality) {
         Quality.GOOD -> qualityGood

@@ -60,6 +60,44 @@ class TelephonyWatcherTest {
         assertEquals(listOf(true, false), states)
     }
 
+    @Test
+    fun modernStartIsIdempotentAndReArmsWithoutLeaking() {
+        shadowOf(RuntimeEnvironment.getApplication())
+            .grantPermissions(android.Manifest.permission.READ_PHONE_STATE)
+        val watcher = TelephonyWatcher(context) { }
+
+        watcher.start()
+        watcher.start()
+        assertEquals(1, callbackRegistrationCount())
+
+        watcher.stop()
+        assertEquals(0, callbackRegistrationCount())
+    }
+
+    @Test
+    fun startArmsAfterPermissionBecomesAvailable() {
+        val app = RuntimeEnvironment.getApplication()
+        val watcher = TelephonyWatcher(context) { }
+
+        watcher.start()
+        assertEquals(0, callbackRegistrationCount())
+
+        shadowOf(app).grantPermissions(android.Manifest.permission.READ_PHONE_STATE)
+        watcher.start()
+        assertEquals(1, callbackRegistrationCount())
+
+        watcher.stop()
+    }
+
+    private fun callbackRegistrationCount(): Int {
+        val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val shadow = shadowOf(telephonyManager)
+        val field = shadow.javaClass.getDeclaredField("telephonyCallbackRegistrations")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        return (field.get(shadow) as List<Any>).size
+    }
+
     private fun dispatch(watcher: TelephonyWatcher, state: Int) {
         val method = TelephonyWatcher::class.java.getDeclaredMethod("dispatch", Int::class.javaPrimitiveType)
         method.isAccessible = true

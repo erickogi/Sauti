@@ -209,10 +209,12 @@ class AudioSessionCoordinator(context: Context) : AudioController {
     private fun reconcileRouting() {
         val available = availableDevices()
         availableDevicesState.value = available
+        val current = currentDeviceState.value
         val preferred = when {
             AudioDevice.WIRED_HEADSET in available -> AudioDevice.WIRED_HEADSET
             AudioDevice.BLUETOOTH in available -> AudioDevice.BLUETOOTH
-            else -> currentDeviceState.value
+            current in available -> current
+            else -> AudioDevice.EARPIECE
         }
         selectDevice(preferred)
     }

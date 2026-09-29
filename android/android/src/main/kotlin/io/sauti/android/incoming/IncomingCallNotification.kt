@@ -19,18 +19,24 @@ import io.sauti.android.ring.DEFAULT_VIBRATION_PATTERN
 
 data class IncomingCallOverrides(
     val ringtoneUri: Uri? = null,
-    val vibrationPattern: LongArray = DEFAULT_VIBRATION_PATTERN
+    val vibrationPattern: LongArray = DEFAULT_VIBRATION_PATTERN,
+    val smallIcon: Int? = null,
+    val contentText: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is IncomingCallOverrides) return false
         return ringtoneUri == other.ringtoneUri &&
-            vibrationPattern.contentEquals(other.vibrationPattern)
+            vibrationPattern.contentEquals(other.vibrationPattern) &&
+            smallIcon == other.smallIcon &&
+            contentText == other.contentText
     }
 
     override fun hashCode(): Int {
         var result = ringtoneUri?.hashCode() ?: 0
         result = 31 * result + vibrationPattern.contentHashCode()
+        result = 31 * result + (smallIcon ?: 0)
+        result = 31 * result + (contentText?.hashCode() ?: 0)
         return result
     }
 }
@@ -72,24 +78,34 @@ object IncomingCallNotification {
         target: ComponentName,
         overrides: IncomingCallOverrides = IncomingCallOverrides(),
         actions: CallActionIntents? = null
+    ): Notification =
+        build(context, call, activityPendingIntent(context, call, target), overrides, actions)
+
+    fun build(
+        context: Context,
+        call: SautiIncomingCall,
+        fullScreenIntent: PendingIntent,
+        overrides: IncomingCallOverrides = IncomingCallOverrides(),
+        actions: CallActionIntents? = null
     ): Notification {
         ensureChannel(context, overrides)
-        val pendingIntent = activityPendingIntent(context, call, target)
         val title = call.callerName?.takeIf { it.isNotBlank() }
             ?: context.getString(io.sauti.android.R.string.sauti_incoming_call_title)
 
+        val smallIcon = overrides.smallIcon ?: android.R.drawable.stat_sys_phone_call
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && actions != null) {
-            buildCallStyle(context, title, pendingIntent, actions)
+            buildCallStyle(context, title, fullScreenIntent, actions, smallIcon, overrides.contentText)
         } else {
             NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_phone_call)
+                .setSmallIcon(smallIcon)
                 .setContentTitle(title)
+                .apply { overrides.contentText?.let { setContentText(it) } }
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setOngoing(true)
                 .setAutoCancel(true)
-                .setFullScreenIntent(pendingIntent, true)
-                .setContentIntent(pendingIntent)
+                .setFullScreenIntent(fullScreenIntent, true)
+                .setContentIntent(fullScreenIntent)
                 .build()
         }
         notification.flags = notification.flags or Notification.FLAG_INSISTENT
@@ -101,13 +117,16 @@ object IncomingCallNotification {
         context: Context,
         title: String,
         pendingIntent: PendingIntent,
-        actions: CallActionIntents
+        actions: CallActionIntents,
+        smallIcon: Int,
+        contentText: String?
     ): Notification {
         val person = Person.Builder().setName(title).setImportant(true).build()
         val style = Notification.CallStyle.forIncomingCall(person, actions.decline, actions.answer)
         return Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_phone_call)
+            .setSmallIcon(smallIcon)
             .setStyle(style)
+            .apply { contentText?.let { setContentText(it) } }
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_CALL)
             .setFullScreenIntent(pendingIntent, true)
@@ -123,6 +142,17 @@ object IncomingCallNotification {
         actions: CallActionIntents? = null
     ) {
         val notification = build(context, call, target, overrides, actions)
+        NotificationManagerCompat.from(context).notify(notificationId(call.callId), notification)
+    }
+
+    fun post(
+        context: Context,
+        call: SautiIncomingCall,
+        fullScreenIntent: PendingIntent,
+        overrides: IncomingCallOverrides = IncomingCallOverrides(),
+        actions: CallActionIntents? = null
+    ) {
+        val notification = build(context, call, fullScreenIntent, overrides, actions)
         NotificationManagerCompat.from(context).notify(notificationId(call.callId), notification)
     }
 

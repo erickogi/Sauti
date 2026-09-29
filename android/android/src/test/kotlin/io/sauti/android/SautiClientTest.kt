@@ -47,12 +47,15 @@ private class FakeCallEngine : CallEngine {
     val holdCalls = mutableListOf<Boolean>()
     var networkChanges = 0
     var leaveCount = 0
+    var lastJoin: JoinConfig? = null
 
     fun setPhase(phase: CallPhase) {
         stateFlow.value = stateFlow.value.copy(phase = phase)
     }
 
-    override suspend fun join(config: JoinConfig) = Unit
+    override suspend fun join(config: JoinConfig) {
+        lastJoin = config
+    }
     override fun setMuted(muted: Boolean) {
         muteCalls += muted
     }
@@ -97,6 +100,18 @@ private class FakeStartable : Startable {
     override fun stop() = Unit
 }
 
+private class RecordingStartable : Startable {
+    var startCount = 0
+    var stopCount = 0
+    override fun start() {
+        startCount += 1
+    }
+
+    override fun stop() {
+        stopCount += 1
+    }
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class SautiClientTest {
@@ -109,6 +124,8 @@ class SautiClientTest {
         resumeStore: ResumeStore = ResumeStore(context),
         onConnectivity: ((NetworkEventKind) -> Unit) -> Unit = {},
         onTelephony: ((Boolean) -> Unit) -> Unit = {},
+        telephony: Startable = FakeStartable(),
+        enableTelephonyAutoMute: Boolean = true,
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
         enableProximity: Boolean = false,
         scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)
@@ -118,9 +135,10 @@ class SautiClientTest {
         audio = audio,
         engine = engine,
         resumeStore = resumeStore,
-        telephonyFactory = { _, cb -> onTelephony(cb); FakeStartable() },
+        telephonyFactory = { _, cb -> onTelephony(cb); telephony },
         connectivityFactory = { _, cb -> onConnectivity(cb); FakeStartable() },
         interruptionPolicy = interruptionPolicy,
+        enableTelephonyAutoMute = enableTelephonyAutoMute,
         enableProximity = enableProximity
     )
 
@@ -142,6 +160,28 @@ class SautiClientTest {
         shadowOf(sensorManager).addSensor(Sensor.TYPE_PROXIMITY, sensor)
         shadowOf(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .setIsWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, true)
+    }
+
+    @Test
+    fun endWhenLastPeerLeavesDefaultsFalseInJoinConfig() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.join(joinRequest)
+
+        assertEquals(false, engine.lastJoin?.endWhenLastPeerLeaves)
+        client.leave()
+    }
+
+    @Test
+    fun endWhenLastPeerLeavesIsPlumbedToEngine() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.join(joinRequest.copy(endWhenLastPeerLeaves = true))
+
+        assertEquals(true, engine.lastJoin?.endWhenLastPeerLeaves)
+        client.leave()
     }
 
     @Test
@@ -271,6 +311,106 @@ class SautiClientTest {
             while (store.load() != null) delay(20)
         }
         assertNull(store.load())
+        assertEquals(1, engine.leaveCount)
+    }
+
+    @Test
+    fun clientIsSautiCallHandle() {
+        val client: SautiCall = build()
+        assertTrue(client is SautiClient)
+    }
+
+    @Test
+    fun selfParticipantIdSetOnJoin() = runBlocking {
+        val client = build()
+        assertNull(client.selfParticipantId)
+
+        client.join(joinRequest)
+
+        assertEquals(joinRequest.participantId, client.selfParticipantId)
+        client.leave()
+    }
+
+    @Test
+    fun telephonyWatcherStartsOnJoinWhenAutoMuteEnabled() = runBlocking {
+        val telephony = RecordingStartable()
+        val client = build(telephony = telephony, enableTelephonyAutoMute = true)
+
+        client.join(joinRequest)
+
+        assertEquals(1, telephony.startCount)
+        client.leave()
+    }
+
+    @Test
+    fun telephonyWatcherNotStartedOnJoinWhenAutoMuteDisabled() = runBlocking {
+        val telephony = RecordingStartable()
+        val client = build(telephony = telephony, enableTelephonyAutoMute = false)
+
+        client.join(joinRequest)
+
+        assertEquals(0, telephony.startCount)
+        client.leave()
+    }
+
+    @Test
+    fun rearmTelephonyReStartsWatcherWhenEnabled() = runBlocking {
+        val telephony = RecordingStartable()
+        val client = build(telephony = telephony, enableTelephonyAutoMute = true)
+
+        client.join(joinRequest)
+        client.rearmTelephony()
+
+        assertEquals(2, telephony.startCount)
+        client.leave()
+    }
+
+    @Test
+    fun rearmTelephonyIsNoOpWhenDisabled() = runBlocking {
+        val telephony = RecordingStartable()
+        val client = build(telephony = telephony, enableTelephonyAutoMute = false)
+
+        client.join(joinRequest)
+        client.rearmTelephony()
+
+        assertEquals(0, telephony.startCount)
+        client.leave()
+    }
+
+    @Test
+    fun rearmTelephonyIsNoOpAfterLeave() = runBlocking {
+        val telephony = RecordingStartable()
+        val client = build(telephony = telephony, enableTelephonyAutoMute = true)
+
+        client.join(joinRequest)
+        client.leave()
+        val afterLeave = telephony.startCount
+
+        client.rearmTelephony()
+
+        assertEquals(afterLeave, telephony.startCount)
+    }
+
+    @Test
+    fun leaveIsIdempotent() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.leave()
+        client.leave()
+        client.hangUp()
+
+        assertEquals(1, engine.leaveCount)
+    }
+
+    @Test
+    fun leaveInternalDoesNotDoubleStopEngine() = runBlocking {
+        val engine = FakeCallEngine()
+        val client = build(engine = engine)
+
+        client.leaveInternal()
+        client.leave()
+
         assertEquals(1, engine.leaveCount)
     }
 }

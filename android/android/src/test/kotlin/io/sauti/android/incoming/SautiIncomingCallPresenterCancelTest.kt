@@ -32,7 +32,8 @@ class SautiIncomingCallPresenterCancelTest {
         val presenter = SautiIncomingCallPresenter(
             context = context,
             target = target,
-            foreground = ForegroundProbe { false }
+            foreground = ForegroundProbe { false },
+            keyguard = KeyguardProbe { true }
         )
         var finished = false
         SautiIncomingCallRegistry.register(call.callId) { finished = true }
@@ -51,7 +52,8 @@ class SautiIncomingCallPresenterCancelTest {
         val presenter = SautiIncomingCallPresenter(
             context = context,
             target = target,
-            foreground = ForegroundProbe { false }
+            foreground = ForegroundProbe { false },
+            keyguard = KeyguardProbe { true }
         )
 
         presenter.present(call)

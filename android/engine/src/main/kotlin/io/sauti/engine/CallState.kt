@@ -25,5 +25,6 @@ data class CallState(
     val localOnHold: Boolean = false,
     val durationMs: Long = 0,
     val quality: Quality = Quality.GOOD,
-    val reconnecting: Boolean = false
+    val reconnecting: Boolean = false,
+    val selfId: String? = null
 )

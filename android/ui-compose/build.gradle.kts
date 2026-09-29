@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.sauti"
-version = "0.1.0"
+version = "0.1.25"
 
 android {
     namespace = "io.sauti.ui.compose"
@@ -54,6 +54,7 @@ android {
 
 dependencies {
     api(project(":android"))
+    implementation(libs.androidx.core.ktx)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
@@ -65,6 +66,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.lifecycle.viewmodel)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.savedstate)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
@@ -74,6 +76,8 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
 
 publishing {

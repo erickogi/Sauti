@@ -17,6 +17,7 @@ import io.sauti.android.telephony.InterruptionPolicy
 import io.sauti.android.telephony.InterruptionReducer
 import io.sauti.android.telephony.TelephonyWatcher
 import io.sauti.android.telephony.UserAudioIntent
+import io.sauti.engine.AudioProcessingConfig
 import io.sauti.engine.CallEvent
 import io.sauti.engine.CallState
 import io.sauti.engine.EngineConfig
@@ -36,7 +37,8 @@ data class SautiJoinRequest(
     val roomId: String,
     val participantId: String,
     val slotGeneration: Long,
-    val displayTitle: String
+    val displayTitle: String,
+    val endWhenLastPeerLeaves: Boolean = false
 )
 
 class SautiClient internal constructor(
@@ -49,10 +51,11 @@ class SautiClient internal constructor(
     connectivityFactory: (Context, (NetworkEventKind) -> Unit) -> Startable,
     connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
     private val interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
+    private val enableTelephonyAutoMute: Boolean = true,
     enableProximity: Boolean = false,
     proximityFactory: (Context, CoroutineScope, StateFlow<CallState>, StateFlow<AudioDevice>) -> ProximityController =
         { ctx, sc, state, device -> ProximityController(ctx, sc, state, device) }
-) {
+) : SautiCall {
     private val appContext = context.applicationContext
 
     private val telephony = telephonyFactory(appContext) { active ->
@@ -77,11 +80,13 @@ class SautiClient internal constructor(
     private var userMuted = false
     private var userHeld = false
 
-    val state: StateFlow<CallState> get() = engine.state
-    val events: SharedFlow<CallEvent> get() = engine.events
-    val currentDevice: StateFlow<AudioDevice> get() = audio.currentDevice
-    val availableDevices: StateFlow<Set<AudioDevice>> get() = audio.availableDevices
-    val interrupted: StateFlow<Boolean> get() = audio.interrupted
+    override val state: StateFlow<CallState> get() = engine.state
+    override val events: SharedFlow<CallEvent> get() = engine.events
+    override val currentDevice: StateFlow<AudioDevice> get() = audio.currentDevice
+    override val availableDevices: StateFlow<Set<AudioDevice>> get() = audio.availableDevices
+    override val interrupted: StateFlow<Boolean> get() = audio.interrupted
+    override var selfParticipantId: String? = null
+        private set
 
     init {
         audio.onInterrupted = { active ->
@@ -101,24 +106,28 @@ class SautiClient internal constructor(
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
         connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
-        enableProximity: Boolean = false
+        enableProximity: Boolean = false,
+        audioProcessing: AudioProcessingConfig = AudioProcessingConfig(),
+        enableTelephonyAutoMute: Boolean = true
     ) : this(
         context = context,
         scope = scope,
         audio = AudioSessionCoordinator(context.applicationContext),
-        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope),
+        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope, audioProcessing),
         resumeStore = ResumeStore(context.applicationContext),
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
         connectivityPolicy = connectivityPolicy,
         interruptionPolicy = interruptionPolicy,
+        enableTelephonyAutoMute = enableTelephonyAutoMute,
         enableProximity = enableProximity
     )
 
     suspend fun join(request: SautiJoinRequest) {
+        selfParticipantId = request.participantId
         CallForegroundService.start(appContext, request.displayTitle, CallPresence.CONNECTING)
         audio.start()
-        telephony.start()
+        if (enableTelephonyAutoMute) telephony.start()
         connectivity.start()
         proximity?.start()
         resumeStore.save(
@@ -131,7 +140,7 @@ class SautiClient internal constructor(
             )
         )
         scope.launch { observeStateForNotification(request.displayTitle) }
-        engine.join(JoinConfig(request.url, request.token))
+        engine.join(JoinConfig(request.url, request.token, request.endWhenLastPeerLeaves))
     }
 
     private suspend fun observeStateForNotification(title: String) {
@@ -148,31 +157,51 @@ class SautiClient internal constructor(
         else -> CallPresence.ONGOING
     }
 
-    fun setMuted(muted: Boolean) {
+    fun rearmTelephony() {
+        if (!enableTelephonyAutoMute) return
+        if (left) return
+        telephony.start()
+    }
+
+    override fun setMuted(muted: Boolean) {
         userMuted = muted
         engine.setMuted(muted)
     }
 
-    fun setHold(onHold: Boolean) {
+    override fun setHold(onHold: Boolean) {
         userHeld = onHold
         engine.setHold(onHold)
     }
 
-    fun selectDevice(device: AudioDevice) = audio.selectDevice(device)
+    override fun selectDevice(device: AudioDevice) = audio.selectDevice(device)
+
+    override fun hangUp() = leave()
+
+    private var left = false
+    private var disposed = false
 
     fun leave() {
+        if (left) return
+        leaveInternal()
+        CallForegroundService.stop(appContext)
+    }
+
+    internal fun leaveInternal() {
+        if (left) return
+        left = true
         engine.leave()
         proximity?.stop()
         telephony.stop()
         connectivity.stop()
         audio.stop()
-        CallForegroundService.stop(appContext)
         scope.launch { resumeStore.clear() }
     }
 
     suspend fun pendingResume(): ResumeRecord? = resumeStore.load()
 
     fun dispose() {
+        if (disposed) return
+        disposed = true
         engine.dispose()
     }
 }

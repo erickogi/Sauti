@@ -22,16 +22,16 @@ object RingReducer {
     }
 
     private fun reduceIncoming(state: CallState, ringerMode: RingerMode): RingMode = when (state.phase) {
-        CallPhase.IDLE, CallPhase.CONNECTING -> incomingFor(ringerMode)
+        CallPhase.IDLE, CallPhase.CONNECTING -> incoming(ringerMode)
         else -> RingMode.Silent
     }
 
-    private fun incomingFor(ringerMode: RingerMode): RingMode = when (ringerMode) {
+    fun incoming(ringerMode: RingerMode): RingMode = when (ringerMode) {
         RingerMode.SILENT -> RingMode.Silent
         RingerMode.VIBRATE -> RingMode.Incoming(sound = false)
         RingerMode.NORMAL -> RingMode.Incoming(sound = true)
     }
 
-    private fun remotePresent(state: CallState, selfParticipantId: String?): Boolean =
-        state.participants.any { selfParticipantId == null || it.participantId != selfParticipantId }
+    fun remotePresent(state: CallState, selfParticipantId: String?): Boolean =
+        selfParticipantId != null && state.participants.any { it.participantId != selfParticipantId }
 }

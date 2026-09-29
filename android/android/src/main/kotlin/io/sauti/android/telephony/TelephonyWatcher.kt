@@ -24,6 +24,7 @@ class TelephonyWatcher(
 
     override fun start() {
         if (!hasPermission()) return
+        stop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             startModern()
         } else {

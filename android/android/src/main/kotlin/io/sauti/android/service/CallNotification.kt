@@ -18,7 +18,8 @@ enum class CallPresence {
 }
 
 object CallNotification {
-    const val CHANNEL_ID = "sauti_calls"
+    const val CHANNEL_ID = "sauti_ongoing_call"
+    const val LEGACY_CHANNEL_ID = "sauti_calls"
     const val NOTIFICATION_ID = 0x5A07
 
     fun ensureChannel(context: Context) {
@@ -26,10 +27,11 @@ object CallNotification {
         val manager = context.getSystemService(NotificationManager::class.java)
         val existing = manager.getNotificationChannel(CHANNEL_ID)
         if (existing != null) return
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(io.sauti.android.R.string.sauti_channel_name),
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = context.getString(io.sauti.android.R.string.sauti_channel_description)
             setShowBadge(false)
@@ -42,7 +44,8 @@ object CallNotification {
         title: String,
         presence: CallPresence,
         fullScreenIntent: PendingIntent,
-        hangupIntent: PendingIntent
+        hangupIntent: PendingIntent,
+        contentIntent: PendingIntent? = null
     ): Notification {
         ensureChannel(context)
         val text = when (presence) {
@@ -52,7 +55,7 @@ object CallNotification {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return buildCallStyle(context, title, text, fullScreenIntent, hangupIntent)
+            return buildCallStyle(context, title, text, fullScreenIntent, hangupIntent, contentIntent)
         }
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
@@ -61,8 +64,9 @@ object CallNotification {
             .setContentText(text)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setFullScreenIntent(fullScreenIntent, true)
+            .apply { if (contentIntent != null) setContentIntent(contentIntent) }
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 context.getString(io.sauti.android.R.string.sauti_call_ongoing),
@@ -77,7 +81,8 @@ object CallNotification {
         title: String,
         text: String,
         fullScreenIntent: PendingIntent,
-        hangupIntent: PendingIntent
+        hangupIntent: PendingIntent,
+        contentIntent: PendingIntent?
     ): Notification {
         val person = Person.Builder().setName(title).setImportant(true).build()
         val style = Notification.CallStyle.forOngoingCall(person, hangupIntent)
@@ -88,6 +93,7 @@ object CallNotification {
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_CALL)
             .setFullScreenIntent(fullScreenIntent, true)
+            .apply { if (contentIntent != null) setContentIntent(contentIntent) }
             .build()
     }
 

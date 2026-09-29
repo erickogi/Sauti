@@ -64,7 +64,8 @@ class SautiIncomingCallPresenterDedupeTest {
         val presenter = SautiIncomingCallPresenter(
             context = context,
             target = target,
-            foreground = ForegroundProbe { false }
+            foreground = ForegroundProbe { false },
+            keyguard = KeyguardProbe { true }
         )
 
         presenter.present(call)

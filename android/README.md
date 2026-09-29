@@ -18,6 +18,11 @@ TypeScript packages; the two speak the same frames so a Kotlin peer and a
           foreground service, and DataStore resume persistence.
 :rx2      com.android.library. A thin RxJava2 adapter over the engine's Flow and
           suspend surface. No call logic of its own.
+:ui-compose com.android.library. Optional Jetpack Compose UI. The ready-made call host
+          (Sauti facade + single-Activity SautiCallActivity), the in-call, incoming
+          (slide-to-answer), and connecting screens, and the opt-in over-other-apps
+          bubble and in-app return bar. Built on :android; adopters can skip it and
+          render their own UI on SautiClient/CallState.
 ```
 
 The engine names no `org.webrtc` type. It reaches the media stack only through the

@@ -50,7 +50,8 @@ class IncomingCallNotificationCancelTest {
         val presenter = SautiIncomingCallPresenter(
             context = context,
             target = target,
-            foreground = ForegroundProbe { false }
+            foreground = ForegroundProbe { false },
+            keyguard = KeyguardProbe { true }
         )
         val call = SautiIncomingCall("drop", "room-drop", "Drop")
 

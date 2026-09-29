@@ -799,9 +799,15 @@ Events are for imperative reactions (a toast, a sound, logging).
 
 ## 4. Mobile engineer: Android
 
+> **Adding calling to an app?** If you just want to integrate the ready-made call host,
+> read the focused **[Android adopter guide](./ANDROID-ADOPTER-GUIDE.md)** instead — it
+> is the mobile-developer path (install → `Config` → tokens → outgoing/incoming →
+> theming → worked example). This section is the reference: the module layout, the
+> high-level host, and the low-level `SautiClient` the host is built on.
+
 `io.sauti` is a Kotlin implementation of the same contract. It does not depend on the
 TypeScript packages; it re-implements the wire protocol so a Kotlin peer and a
-`@sauti/core` web peer interoperate on the same call. It ships as three modules:
+`@sauti/core` web peer interoperate on the same call. It ships as four modules:
 
 - `io.sauti:engine` — pure Kotlin/JVM. `CallSession`, the signaling client, the mesh,
   perfect negotiation, duration, reconnect, quality. No Android or WebRTC types on its
@@ -812,6 +818,14 @@ TypeScript packages; it re-implements the wire protocol so a Kotlin peer and a
   is what most apps consume.
 - `io.sauti:rx2` — a thin RxJava2 adapter over the engine's Flow and suspend surface,
   for codebases that are not on coroutines.
+- `io.sauti:ui-compose` — optional Jetpack Compose UI and the ready-made call host: the
+  `Sauti` facade + single-Activity `SautiCallActivity`, the in-call screen, the incoming
+  full-screen presentation (with slide-to-answer), the connecting/reconnecting states,
+  the minimized/return pill, the in-app return bar, and the opt-in system-overlay call
+  bubble. Themeable through `SautiColors`/`SautiStrings`/`SautiTheme` and, for the bubble
+  and bar, `SautiBubbleTheme` (+ `BubbleConfig`). Consume it for the batteries-included
+  host (see "The ready-made call host" below); an app can instead build its own UI on
+  `SautiClient`/`CallState` directly.
 
 ### Consumption
 
@@ -822,11 +836,226 @@ The published group is `io.sauti`. Add the artifact that matches your app:
 dependencies {
     implementation("io.sauti:android:<version>") // Coroutines/Flow API, the usual choice
     // implementation("io.sauti:rx2:<version>")   // only if you need the RxJava2 adapter
+    // implementation("io.sauti:ui-compose:<version>") // only if you want the ready-made Compose UI
 }
 ```
 
 The library targets `minSdk 21`. Every API 31+ call has a working legacy path below it,
 so you do not need a high `minSdk`.
+
+If you consume `io.sauti:ui-compose`, the consumer module must apply the Compose
+compiler plugin (`org.jetbrains.kotlin.plugin.compose`) and enable `buildFeatures {
+compose = true }`, even a module that only calls an installer such as the overlay
+bubble. The bubble theme is a `@Composable` lambda; without the Compose compiler in the
+calling module that lambda is compiled to a non-composable type and the call fails to
+link at runtime with a `NoSuchMethodError`.
+
+### Two ways to consume: the ready-made host, or the raw client
+
+There are two entry points, and most apps want the first:
+
+- **The ready-made call host** (`io.sauti:ui-compose`) — a single-Activity host
+  (`SautiCallActivity`) plus a global facade (`Sauti`) that owns the whole call
+  lifecycle: outgoing dialing, the full-screen incoming presentation, the in-call
+  screen, the connecting/reconnecting states, mute/hold/route controls, the ongoing
+  notification, and the opt-in over-other-apps bubble and in-app return bar. You wire
+  a `SautiCallHost.Config` once at startup, then start calls with a one-line
+  `Sauti.startCall(...)`. You supply tokens and answer/decline decisions through
+  suspend callbacks; the host draws everything. This is the path both SafeBoda apps
+  use, and the one this section documents first.
+- **The raw `SautiClient`** (`io.sauti:android`) — the lower-level surface documented
+  under "The client surface" below. Consume this directly only when you are building
+  your own call UI and want to drive `join`/`leave`/`setMuted`/`selectDevice` and
+  render `CallState` yourself. The ready-made host is built on top of it.
+
+### The ready-made call host (`Sauti` + `SautiCallHost`)
+
+**1. Register the host Activity.** `SautiCallActivity` is the single window every call
+surface renders in — outgoing, incoming, and connected. Declare it in your app manifest
+(the library does not, so you control its task affinity and theme):
+
+```xml
+<activity
+    android:name="io.sauti.ui.compose.SautiCallActivity"
+    android:exported="false"
+    android:launchMode="singleTask"
+    android:showWhenLocked="true"
+    android:turnScreenOn="true"
+    android:theme="@style/Theme.YourApp.Call" />
+```
+
+**2. Configure once, at process start** (e.g. in `Application.onCreate`). `Config` is
+the whole contract between your app and the host: the host asks you for tokens and for
+answer/decline/cancel/end decisions through suspend callbacks, and you hand it your
+theme:
+
+```kotlin
+Sauti.configure(
+    SautiCallHost.Config(
+        // Outgoing: turn a target + metadata into a joinable ticket, or null to abort.
+        onStartCall = { request -> mintTicket(request.target, request.metadata) },
+        // Incoming: accept -> return a ticket to join; decline -> tell your backend.
+        onAccept = { incoming -> mintTicketForIncoming(incoming) },
+        onDecline = { incoming -> backend.declineCall(incoming.callId) },
+        // Lifecycle hangups so your backend can settle call state.
+        onCancelCall = { callId -> backend.cancelCall(callId) },
+        onEndCall = { callId -> backend.endCall(callId) },
+        // Look and copy (see "Theming the host" below).
+        colors = safeBodaSautiColors(),
+        strings = safeBodaSautiStrings(),
+        // Optional behaviour.
+        incomingRequiresSlide = true,
+        onOutgoingFailed = { toast("Could not start call") }
+    )
+)
+```
+
+The full `SautiCallHost.Config` surface:
+
+| Field | Type | Default | Purpose |
+|---|---|---|---|
+| `onAccept` | `suspend (SautiIncomingCall) -> SautiSessionTicket?` | required | Callee accepted; return a ticket to join, or `null` to abort. |
+| `onDecline` | `suspend (SautiIncomingCall) -> Unit` | required | Callee declined; tell your backend. |
+| `onStartCall` | `suspend (SautiOutgoingRequest) -> SautiSessionTicket?` | `{ null }` | Caller dialed via `Sauti.startCall`; mint the ticket, or `null` to abort. |
+| `onCancelCall` | `suspend (callId) -> Unit` | `{}` | Caller cancelled a still-ringing outgoing call. |
+| `onEndCall` | `suspend (callId) -> Unit` | `{}` | Either side ended a **connected** call; settle backend state. |
+| `callerNameResolver` | `(SautiIncomingCall) -> String` | `::defaultCallerName` | Display name shown on incoming/in-call (falls back to metadata `name`, then a short id). |
+| `colors` / `typography` / `strings` | `SautiColors?` / `SautiTypography?` / `SautiStrings` | library defaults | Theme + copy for every host surface. |
+| `acceptPermissions` | `List<String>` | `[RECORD_AUDIO]` | Runtime permissions requested on accept. |
+| `onAcceptPermissionDenied` | `() -> Unit` | `{}` | Accept blocked because a permission was denied. |
+| `onAfterAccept` | `(SautiIncomingCall) -> Unit` | `{}` | Hook after a successful accept. |
+| `ringOverrides` / `notificationOverrides` | `RingOverrides` / `IncomingCallOverrides` | defaults | Ringtone and incoming-notification customization. |
+| `autoMuteOnCellularCall` | `Boolean` | `false` | Auto-mute the Sauti call during a GSM interruption. |
+| `sessionDefaults` | `SautiSessionDefaults` | defaults | Proximity, audio processing, ICE-restart debounce, QoE sink. |
+| `outgoingNoAnswerTimeoutMs` | `Long` | `35_000` | Ring timeout before an unanswered outgoing call gives up. |
+| `onOutgoingFailed` | `() -> Unit` | `{}` | Outgoing call could not be started (e.g. ticket mint returned null/threw). |
+| `overlayPromptContent` | `(@Composable (onConfirm, onDismiss) -> Unit)?` | `null` | Adopter-supplied dialog for the overlay-permission explainer; `null` uses the built-in one. |
+| `incomingRequiresSlide` | `Boolean` | `true` | Incoming screen shows slide-to-answer (`true`) or two tap buttons (`false`). |
+
+A `SautiSessionTicket` is what any of the mint callbacks return — the joinable
+credentials your backend produced:
+
+```kotlin
+data class SautiSessionTicket(
+    val url: String,            // wss:// signaling URL
+    val token: String,          // host token
+    val roomId: String,
+    val participantId: String,
+    val displayTitle: String,   // ongoing-notification title
+    val callId: String = "",    // your backend call id; flows back to onEndCall/onCancelCall
+    val endWhenLastPeerLeaves: Boolean = true,
+    val initialDevice: AudioDevice = AudioDevice.EARPIECE
+)
+```
+
+**3. Start, present, and resume calls** through the `Sauti` facade — no Activity
+plumbing on your side:
+
+```kotlin
+// Outgoing: fires onStartCall, opens SautiCallActivity dialing.
+Sauti.startCall(context, target = calleeId, metadata = mapOf("name" to calleeName, "plane" to "trip"))
+
+// Incoming: call this from your FCM handler with the parsed push.
+Sauti.presentIncomingCall(context, incomingCall)
+Sauti.cancelIncomingCall(context, callId)   // caller hung up before answer
+
+// Bring the current call back to the foreground (e.g. from a notification or your own UI).
+context.startActivity(Sauti.resumeIntent(context))
+```
+
+`metadata` is your opaque bag; the host echoes `name` onto the call UI and passes the
+rest through to `onStartCall`. SafeBoda uses `metadata["plane"] == "trip"` to route
+trip-scoped calls.
+
+### Slide-to-answer on the incoming screen
+
+With `incomingRequiresSlide = true` (the default), the full-screen incoming presents a
+horizontal **slide-to-answer** track — the caller must drag a handle past 60% of the
+track to connect, which prevents pocket/accidental answers — with **decline as a single
+tap** below it (asymmetric on purpose: an accidental answer is the costly mistake). The
+slide gives a haptic on completion and springs back if released short. TalkBack and
+Switch Access users get a tappable "Answer" action on the track via a semantics
+`onClick`, so accessibility is not gated behind the drag. Set
+`incomingRequiresSlide = false` to fall back to the classic two-button (decline /
+accept) layout. The `onAccept` / `onDecline` callbacks are identical either way, so
+this is a pure presentation choice with no wiring change.
+
+### The over-other-apps bubble and the in-app return bar
+
+Two optional, opt-in surfaces let a user get back to a live call after they navigate
+away. Install either or both once, from `Application.onCreate`, after `Sauti.configure`:
+
+```kotlin
+// A) In-app return bar: a themed bar pinned to the top of your own screens while a
+//    call is live and the call screen is NOT in front. Foreground-only, no permission.
+installSautiCallBar(
+    application = this,
+    onReturn = { startActivity(Sauti.resumeIntent(this)) },
+    optedIn = true,
+    theme = { content -> SafeBodaSautiBubbleTheme(content) },
+    content = null            // null = built-in SautiCallBar; or pass your own composable
+)
+
+// B) Over-other-apps bubble: a draggable, edge-snapping call bubble that floats above
+//    OTHER apps while the call runs in the background. Needs SYSTEM_ALERT_WINDOW.
+installSautiCallBubble(
+    application = this,
+    onReturn = { startActivity(Sauti.resumeIntent(this)) },
+    optedIn = true,
+    theme = { content -> SafeBodaSautiBubbleTheme(content) }
+)
+```
+
+The bar and the bubble are complementary: the **bar** covers "call is live, user is on
+another screen of my app"; the **bubble** covers "call is live, user left my app
+entirely". The bar needs no permission and shows immediately; the bubble needs the
+special-access `SYSTEM_ALERT_WINDOW` permission, which you declare in your manifest and
+the user grants from a settings screen:
+
+```xml
+<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+```
+
+Rather than shove the user to that settings screen mid-dial, the host requests overlay
+permission **at the point of need**: the first time the user minimizes an active call,
+it shows a short explainer (`SautiStrings.overlayPrompt*`, or your own
+`Config.overlayPromptContent`) and only then sends them to grant. Decline once and it
+does not nag again for that call. Both installers no-op when `optedIn = false`, so you
+can ship them dark behind a flag. See
+`ui-compose/.../overlay/README.md` for the bubble geometry, gesture, and permission
+internals.
+
+### Theming the host
+
+Every host surface is themed through three data classes on `Config` — no host code to
+touch:
+
+- **`SautiColors`** — surface, content, accent, danger, positive, the control
+  idle/active tones, and, for the return bar, `callBar` / `onCallBar` (both default to
+  the positive tone; override them when your app is itself green so the bar does not go
+  green-on-green). Pass your brand palette:
+
+  ```kotlin
+  fun safeBodaSautiColors() = SautiColors(
+      surface = ..., onSurface = ..., accent = ...,
+      danger = ..., onDanger = ...,
+      qualityGood = ..., qualityFair = ..., qualityPoor = ...,
+      callBar = colorResource(R.color.seaGreen),   // driver: distinct from its green home
+      onCallBar = colorResource(R.color.white)
+  )
+  ```
+
+- **`SautiStrings`** — every user-facing string, so you localize or rebrand without
+  forking. Notable adopter-relevant entries: `slideToAnswer`, `callBarReturn`,
+  `overlayPromptTitle` / `overlayPromptBody` / `overlayPromptConfirm` /
+  `overlayPromptDismiss`. The library defaults are deliberately generic ("Keep this
+  call handy", "Slide to answer"); pass your product's copy.
+
+- **`SautiTypography`** — optional type scale.
+
+The bubble and bar take a `SautiBubbleTheme` (a `@Composable (@Composable () -> Unit)
+-> Unit` wrapper) so they render inside your Material theme; colors still flow from
+`SautiColors`.
 
 ### Permissions and manifest
 
