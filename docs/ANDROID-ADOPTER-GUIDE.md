@@ -510,6 +510,23 @@ The four Android artifacts version together — keep `engine`, `android`, `rx2`,
 `mavenLocal()` after a `./gradlew publishToMavenLocal`; releases go through JitPack. The
 current published version is **`0.1.25`**.
 
+### What changed in 0.1.25
+
+Behaviour, mostly around the incoming and ringback paths. Nothing here is a breaking
+change; the new `Config` fields all default to the previous behaviour.
+
+- Outgoing ringback now stops as soon as the callee joins the room. It waits for a
+  resolved self participant id before treating anyone else in the room as the remote
+  party, so it no longer stops early or rings on after connect.
+- A second incoming call that arrives while a call is already live is auto-declined
+  instead of replacing the live call. Wire `onBusyDecline` to tell your backend.
+- An unanswered incoming call is treated as missed after `incomingRingTimeoutMs`
+  (default 45s). `onMissedCall` fires when that happens. The timeout is cancelled when
+  the call is accepted, including when acceptance comes in through the notification
+  intent or after the app resumes.
+- If the current audio output device is removed mid-call (a headset unplugged, for
+  example), routing falls back to the earpiece instead of holding the now-absent device.
+
 ## 15. Adoption checklist
 
 - [ ] `io.sauti:android` + `io.sauti:ui-compose` at the same version; Compose compiler
