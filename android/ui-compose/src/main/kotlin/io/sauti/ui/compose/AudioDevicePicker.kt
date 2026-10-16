@@ -63,8 +63,8 @@ fun AudioDevicePicker(uiState: SautiCallUiState, modifier: Modifier = Modifier) 
             onClick = { onSpeakerToggle(uiState) },
             shape = SautiTheme.shapes.control,
             modifier = modifier.semantics {
-                contentDescription = strings.audioOutput + ", " + currentLabel
-                stateDescription = if (speakerToggleOn(device)) strings.speakerOn else strings.speakerOff
+                contentDescription = strings.audioOutput
+                stateDescription = currentLabel
             }
         ) {
             Text(text = currentLabel)
