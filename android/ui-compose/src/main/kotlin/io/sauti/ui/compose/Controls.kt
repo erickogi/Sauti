@@ -1,6 +1,8 @@
 package io.sauti.ui.compose
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
@@ -53,41 +55,65 @@ fun EndCallButton(
 }
 
 @Composable
+internal fun LabeledControl(
+    caption: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    if (caption == null) {
+        Box(modifier) { content() }
+    } else {
+        Column(
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            content()
+            SautiControlCaption(caption)
+        }
+    }
+}
+
+@Composable
 fun SautiMuteButton(
     uiState: SautiCallUiState,
     modifier: Modifier = Modifier,
-    size: Dp = 64.dp
+    size: Dp = 64.dp,
+    caption: String? = null
 ) {
     val strings = LocalSautiStrings.current
     val muted = uiState.localMuted
     val colors = SautiTheme.colors
-    SautiIconButton(
-        contentDescription = if (muted) strings.unmute else strings.mute,
-        backgroundColor = if (muted) colors.controlActiveBackground else colors.controlIdleBackground,
-        contentColor = if (muted) colors.controlActiveContent else colors.controlIdleContent,
-        onClick = { uiState.toggleMute() },
-        modifier = modifier,
-        size = size,
-        glyph = { c, m -> if (muted) MicOffGlyph(c, m) else MicGlyph(c, m) }
-    )
+    LabeledControl(caption = caption, modifier = modifier) {
+        SautiIconButton(
+            contentDescription = if (muted) strings.unmute else strings.mute,
+            backgroundColor = if (muted) colors.controlActiveBackground else colors.controlIdleBackground,
+            contentColor = if (muted) colors.controlActiveContent else colors.controlIdleContent,
+            onClick = { uiState.toggleMute() },
+            size = size,
+            glyph = { c, m -> if (muted) MicOffGlyph(c, m) else MicGlyph(c, m) }
+        )
+    }
 }
 
 @Composable
 fun SautiEndCallButton(
     modifier: Modifier = Modifier,
     size: Dp = 64.dp,
+    caption: String? = null,
     onEnd: () -> Unit
 ) {
     val strings = LocalSautiStrings.current
-    SautiIconButton(
-        contentDescription = strings.end,
-        backgroundColor = SautiTheme.colors.danger,
-        contentColor = SautiTheme.colors.onDanger,
-        onClick = onEnd,
-        modifier = modifier,
-        size = size,
-        glyph = { c, m -> CallEndGlyph(c, m) }
-    )
+    LabeledControl(caption = caption, modifier = modifier) {
+        SautiIconButton(
+            contentDescription = strings.end,
+            backgroundColor = SautiTheme.colors.danger,
+            contentColor = SautiTheme.colors.onDanger,
+            onClick = onEnd,
+            size = size,
+            glyph = { c, m -> CallEndGlyph(c, m) }
+        )
+    }
 }
 
 @Composable

@@ -83,9 +83,9 @@ fun SautiSoloCallScreen(
                 horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.Top
             ) {
-                SautiMuteButton(uiState = uiState)
+                SautiMuteButton(uiState = uiState, caption = strings.mute)
                 SautiAudioButton(uiState = uiState)
-                SautiEndCallButton(onEnd = onEnd ?: { uiState.leave() })
+                SautiEndCallButton(onEnd = onEnd ?: { uiState.leave() }, caption = strings.end)
             }
         }
         if (onMinimize != null) {
