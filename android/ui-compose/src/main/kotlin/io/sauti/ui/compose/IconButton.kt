@@ -10,8 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -23,6 +26,7 @@ fun SautiIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 64.dp,
+    stateDescription: String? = null,
     glyph: @Composable (Color, Modifier) -> Unit
 ) {
     Box(
@@ -31,7 +35,11 @@ fun SautiIconButton(
             .clip(CircleShape)
             .background(backgroundColor)
             .clickable(onClick = onClick)
-            .semantics { this.contentDescription = contentDescription },
+            .semantics {
+                this.contentDescription = contentDescription
+                this.role = Role.Button
+                stateDescription?.let { this.stateDescription = it }
+            },
         contentAlignment = Alignment.Center
     ) {
         glyph(contentColor, Modifier.size(size * 0.44f))

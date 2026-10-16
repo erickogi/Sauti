@@ -81,7 +81,7 @@ fun SautiSoloCallScreen(
                     .fillMaxWidth()
                     .padding(bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 SautiMuteButton(uiState = uiState)
                 SautiAudioButton(uiState = uiState)

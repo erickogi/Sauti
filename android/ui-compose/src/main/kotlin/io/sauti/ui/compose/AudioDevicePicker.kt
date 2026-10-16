@@ -1,8 +1,5 @@
 package io.sauti.ui.compose
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import io.sauti.android.audio.AudioDevice
 
 internal fun audioDeviceLabel(device: AudioDevice, strings: SautiStrings): String = when (device) {
@@ -28,32 +26,40 @@ internal fun audioDeviceOrder(devices: Set<AudioDevice>): List<AudioDevice> =
 @Composable
 fun AudioDevicePicker(uiState: SautiCallUiState, modifier: Modifier = Modifier) {
     val strings = LocalSautiStrings.current
+    val device = uiState.currentDevice
+    val devices = uiState.availableDevices
     var expanded by remember { mutableStateOf(false) }
-    val options = audioDeviceOrder(uiState.availableDevices)
-    val currentLabel = audioDeviceLabel(uiState.currentDevice, strings)
-    val description = strings.audioOutput + ", " + currentLabel
-    Box(modifier = modifier) {
+
+    if (showAudioRoutePicker(devices)) {
+        val currentLabel = audioDeviceLabel(device, strings)
         FilledTonalButton(
             onClick = { expanded = true },
             shape = SautiTheme.shapes.control,
-            modifier = Modifier.semantics { contentDescription = description }
+            modifier = modifier.semantics {
+                contentDescription = strings.audioOutput + ", " + currentLabel
+            }
         ) {
             Text(text = currentLabel)
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { device ->
-                val label = audioDeviceLabel(device, strings)
-                DropdownMenuItem(
-                    text = { Text(text = label) },
-                    onClick = {
-                        expanded = false
-                        uiState.selectDevice(device)
-                    }
-                )
+    } else {
+        val on = speakerToggleOn(device)
+        FilledTonalButton(
+            onClick = { onSpeakerToggle(uiState) },
+            shape = SautiTheme.shapes.control,
+            modifier = modifier.semantics {
+                stateDescription = if (on) strings.speakerOn else strings.speakerOff
             }
+        ) {
+            Text(text = strings.speaker)
         }
+    }
+
+    if (expanded) {
+        AudioRouteSheet(
+            devices = devices,
+            current = device,
+            onSelect = { onSelectRoute(uiState, it) },
+            onDismiss = { expanded = false }
+        )
     }
 }
