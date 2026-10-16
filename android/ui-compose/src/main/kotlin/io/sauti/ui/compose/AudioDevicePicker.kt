@@ -1,8 +1,10 @@
 package io.sauti.ui.compose
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,18 +30,32 @@ fun AudioDevicePicker(uiState: SautiCallUiState, modifier: Modifier = Modifier) 
     val strings = LocalSautiStrings.current
     val device = uiState.currentDevice
     val devices = uiState.availableDevices
+    val showPicker = showAudioRoutePicker(devices)
     var expanded by remember { mutableStateOf(false) }
 
-    if (showAudioRoutePicker(devices)) {
+    LaunchedEffect(showPicker) {
+        if (!showPicker) expanded = false
+    }
+
+    if (showPicker) {
         val currentLabel = audioDeviceLabel(device, strings)
-        FilledTonalButton(
-            onClick = { expanded = true },
-            shape = SautiTheme.shapes.control,
-            modifier = modifier.semantics {
-                contentDescription = strings.audioOutput + ", " + currentLabel
+        Box(modifier = modifier) {
+            FilledTonalButton(
+                onClick = { expanded = true },
+                shape = SautiTheme.shapes.control,
+                modifier = Modifier.semantics {
+                    contentDescription = strings.audioOutput + ", " + currentLabel
+                }
+            ) {
+                Text(text = currentLabel)
             }
-        ) {
-            Text(text = currentLabel)
+            AudioRouteMenu(
+                expanded = expanded,
+                devices = devices,
+                current = device,
+                onSelect = { onSelectRoute(uiState, it) },
+                onDismiss = { expanded = false }
+            )
         }
     } else {
         val on = speakerToggleOn(device)
@@ -52,14 +68,5 @@ fun AudioDevicePicker(uiState: SautiCallUiState, modifier: Modifier = Modifier) 
         ) {
             Text(text = strings.speaker)
         }
-    }
-
-    if (expanded) {
-        AudioRouteSheet(
-            devices = devices,
-            current = device,
-            onSelect = { onSelectRoute(uiState, it) },
-            onDismiss = { expanded = false }
-        )
     }
 }
