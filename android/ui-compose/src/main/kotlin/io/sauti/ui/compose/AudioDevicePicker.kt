@@ -58,15 +58,16 @@ fun AudioDevicePicker(uiState: SautiCallUiState, modifier: Modifier = Modifier) 
             )
         }
     } else {
-        val on = speakerToggleOn(device)
+        val currentLabel = audioDeviceLabel(device, strings)
         FilledTonalButton(
             onClick = { onSpeakerToggle(uiState) },
             shape = SautiTheme.shapes.control,
             modifier = modifier.semantics {
-                stateDescription = if (on) strings.speakerOn else strings.speakerOff
+                contentDescription = strings.audioOutput + ", " + currentLabel
+                stateDescription = if (speakerToggleOn(device)) strings.speakerOn else strings.speakerOff
             }
         ) {
-            Text(text = strings.speaker)
+            Text(text = currentLabel)
         }
     }
 }

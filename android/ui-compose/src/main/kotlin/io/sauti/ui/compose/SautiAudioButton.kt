@@ -60,17 +60,17 @@ fun SautiAudioButton(
             }
             SautiControlCaption(audioDeviceLabel(device, strings))
         } else {
-            val on = speakerToggleOn(device)
+            val active = audioButtonActive(device)
             SautiIconButton(
-                contentDescription = strings.speaker,
-                backgroundColor = if (on) colors.controlActiveBackground else colors.controlIdleBackground,
-                contentColor = if (on) colors.controlActiveContent else colors.controlIdleContent,
+                contentDescription = "${strings.audioOutput}, ${audioDeviceLabel(device, strings)}",
+                backgroundColor = if (active) colors.controlActiveBackground else colors.controlIdleBackground,
+                contentColor = if (active) colors.controlActiveContent else colors.controlIdleContent,
                 onClick = { onSpeakerToggle(uiState) },
                 size = size,
-                stateDescription = if (on) strings.speakerOn else strings.speakerOff,
-                glyph = { c, m -> AudioDeviceGlyph(AudioDevice.SPEAKER, c, m) }
+                stateDescription = if (speakerToggleOn(device)) strings.speakerOn else strings.speakerOff,
+                glyph = { c, m -> AudioDeviceGlyph(device, c, m) }
             )
-            SautiControlCaption(strings.speaker)
+            SautiControlCaption(audioDeviceLabel(device, strings))
         }
     }
 }
