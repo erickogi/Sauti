@@ -43,4 +43,16 @@ class SautiOutgoingFacadeTest {
         assertTrue(started.getBooleanExtra(SautiCallActivity.EXTRA_OUTGOING, false))
         assertEquals("", started.getStringExtra(SautiCallActivity.EXTRA_OUTGOING_TITLE))
     }
+
+    @Test
+    fun outgoingDeclinedDoesNotInvokeCallbackWithoutALiveOutgoing() {
+        var fired = 0
+        Sauti.configure(
+            SautiCallHost.Config(onAccept = { null }, onDecline = {}, onDeclined = { fired += 1 })
+        )
+
+        Sauti.outgoingDeclined(context, "call-x")
+
+        assertEquals(0, fired)
+    }
 }

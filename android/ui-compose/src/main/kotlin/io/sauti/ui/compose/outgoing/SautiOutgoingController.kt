@@ -100,6 +100,7 @@ internal object SautiOutgoingController {
             SautiOutgoingCallRegistry.finishHost()
             CallForegroundService.stop(app)
             reset()
+            runCatching { SautiCallHost.optional()?.onDeclined?.invoke(callId) }
         }
     }
 

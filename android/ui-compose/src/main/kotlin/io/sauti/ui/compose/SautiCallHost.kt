@@ -76,6 +76,7 @@ object SautiCallHost {
         val onStartCall: suspend (SautiOutgoingRequest) -> SautiSessionTicket? = { null },
         val onCancelCall: suspend (callId: String) -> Unit = {},
         val onEndCall: suspend (callId: String) -> Unit = {},
+        val onDeclined: suspend (callId: String) -> Unit = {},
         val outgoingNoAnswerTimeoutMs: Long = 35_000L,
         val onOutgoingFailed: () -> Unit = {},
         val overlayPromptContent: (@Composable (onConfirm: () -> Unit, onDismiss: () -> Unit) -> Unit)? = null,
