@@ -35,6 +35,7 @@ import io.sauti.ui.compose.overlay.OverlayPromptDecision
 import io.sauti.ui.compose.overlay.SautiBubbleOptIn
 import io.sauti.android.ring.SautiIncomingRing
 import io.sauti.android.service.CallForegroundService
+import io.sauti.android.service.CallPresence
 import io.sauti.engine.CallPhase
 import io.sauti.ui.compose.incoming.IncomingBusyDecision
 import io.sauti.ui.compose.incoming.SautiIncomingCallScreen
@@ -338,14 +339,20 @@ class SautiCallActivity : ComponentActivity() {
         val defaults = config.sessionDefaults
         val autoMute = config.autoMuteOnCellularCall
         val appContext = applicationContext
+        CallForegroundService.start(appContext, callerName(), CallPresence.CONNECTING)
         SautiCallHost.scope.launch {
             val ticket = runCatching {
                 resolveTicket(provider, SautiTokenRequest.Accept(incoming)) { onAccept(incoming) }
-            }.getOrNull() ?: return@launch
-            runCatching {
+            }.getOrNull()
+            if (ticket == null) {
+                CallForegroundService.stop(appContext)
+                return@launch
+            }
+            val joined = runCatching {
                 SautiHostJoin.join(appContext, ticket, defaults, autoMute)
                 onAfterAccept(incoming)
             }
+            if (joined.isFailure) CallForegroundService.stop(appContext)
         }
     }
 
@@ -367,6 +374,7 @@ class SautiCallActivity : ComponentActivity() {
     private fun driveAbort() {
         joinTimeoutJob?.cancel()
         joinTimeoutJob = null
+        CallForegroundService.stop(applicationContext)
         aborted.value = true
     }
 

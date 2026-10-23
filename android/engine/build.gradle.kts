@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.sauti"
-version = "0.1.30"
+version = "0.1.32"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

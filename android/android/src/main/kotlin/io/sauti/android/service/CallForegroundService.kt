@@ -1,5 +1,6 @@
 package io.sauti.android.service
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -40,7 +41,7 @@ class CallForegroundService : Service() {
             else -> {
                 val title = intent.getStringExtra(EXTRA_TITLE) ?: DEFAULT_TITLE
                 val presence = presenceOf(intent.getStringExtra(EXTRA_PRESENCE))
-                goForeground(title, presence)
+                if (!goForeground(title, presence)) stopSelfCompat()
             }
         }
         return START_NOT_STICKY
@@ -63,7 +64,10 @@ class CallForegroundService : Service() {
         autoMuteEnabled = adoption.enableTelephonyAutoMute
         currentEndReason.value = null
         currentCall.value = adoption.client
-        goForeground(adoption.request.displayTitle, CallPresence.CONNECTING)
+        if (!goForeground(adoption.request.displayTitle, CallPresence.CONNECTING)) {
+            endCall()
+            return
+        }
         scope.launch {
             adoption.client.join(adoption.request)
             adoption.initialDevice?.let { adoption.client.selectDevice(it) }
@@ -103,7 +107,7 @@ class CallForegroundService : Service() {
         if (autoMuteEnabled) client.rearmTelephony()
     }
 
-    private fun goForeground(title: String, presence: CallPresence) {
+    private fun goForeground(title: String, presence: CallPresence): Boolean {
         val intents = storedIntents
         val notification = CallNotification.build(
             context = this,
@@ -113,14 +117,27 @@ class CallForegroundService : Service() {
             contentIntent = intents?.contentIntent,
             hangupIntent = intents?.hangupIntent ?: CallNotification.hangupIntent(this)
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            startForeground(
-                CallNotification.NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            )
-        } else {
-            startForeground(CallNotification.NOTIFICATION_ID, notification)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                startForeground(
+                    CallNotification.NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
+            } else {
+                startForeground(CallNotification.NOTIFICATION_ID, notification)
+            }
+            true
+        } catch (e: SecurityException) {
+            false
+        } catch (e: IllegalStateException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                e is ForegroundServiceStartNotAllowedException
+            ) {
+                false
+            } else {
+                throw e
+            }
         }
     }
 

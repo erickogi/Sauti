@@ -5,6 +5,7 @@ import io.sauti.android.outgoing.SautiOutgoingCallRegistry
 import io.sauti.android.ring.CallRole
 import io.sauti.android.ring.SautiRinger
 import io.sauti.android.service.CallForegroundService
+import io.sauti.android.service.CallPresence
 import io.sauti.ui.compose.SautiCallActivity
 import io.sauti.ui.compose.SautiCallHost
 import io.sauti.ui.compose.SautiHostJoin
@@ -61,6 +62,7 @@ internal object SautiOutgoingController {
             return
         }
         armWatchdog(app, config)
+        CallForegroundService.start(app, title, CallPresence.CONNECTING)
         SautiCallHost.scope.launch {
             val ticket = runCatching {
                 resolveTicket(config.tokenProvider, SautiTokenRequest.Outgoing(target, metadata)) {
@@ -76,6 +78,7 @@ internal object SautiOutgoingController {
                 return@launch
             }
             if (!OutgoingStartGuard.shouldProceedAfterStart(startGeneration, generation)) {
+                CallForegroundService.stop(app)
                 if (ticket.callId.isNotBlank()) {
                     runCatching { config.onCancelCall(ticket.callId) }
                 }
