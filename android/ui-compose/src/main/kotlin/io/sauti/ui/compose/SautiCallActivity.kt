@@ -53,6 +53,10 @@ class SautiCallActivity : ComponentActivity() {
     private var ring: SautiIncomingRing? = null
     private var joinTimeoutJob: Job? = null
     private var missedCallJob: Job? = null
+    private var acceptJob: Job? = null
+
+    @Volatile
+    private var acceptConnectingAborted: Boolean = false
     private var renderedPhase: SautiHostPhase = SautiHostPhase.INCOMING
     private var outgoing: Boolean = false
     private var outgoingTitle: String = ""
@@ -339,20 +343,25 @@ class SautiCallActivity : ComponentActivity() {
         val defaults = config.sessionDefaults
         val autoMute = config.autoMuteOnCellularCall
         val appContext = applicationContext
+        acceptConnectingAborted = false
         CallForegroundService.start(appContext, callerName(), CallPresence.CONNECTING)
-        SautiCallHost.scope.launch {
+        CallForegroundService.armConnectingCanceller { driveAbort() }
+        acceptJob = SautiCallHost.scope.launch {
             val ticket = runCatching {
                 resolveTicket(provider, SautiTokenRequest.Accept(incoming)) { onAccept(incoming) }
             }.getOrNull()
-            if (ticket == null) {
+            if (ticket == null || acceptConnectingAborted) {
                 CallForegroundService.stop(appContext)
                 return@launch
             }
             val joined = runCatching {
                 SautiHostJoin.join(appContext, ticket, defaults, autoMute)
-                onAfterAccept(incoming)
             }
-            if (joined.isFailure) CallForegroundService.stop(appContext)
+            if (joined.isFailure) {
+                CallForegroundService.stop(appContext)
+                return@launch
+            }
+            runCatching { onAfterAccept(incoming) }
         }
     }
 
@@ -374,6 +383,10 @@ class SautiCallActivity : ComponentActivity() {
     private fun driveAbort() {
         joinTimeoutJob?.cancel()
         joinTimeoutJob = null
+        acceptConnectingAborted = true
+        acceptJob?.cancel()
+        acceptJob = null
+        CallForegroundService.clearConnectingCanceller()
         CallForegroundService.stop(applicationContext)
         aborted.value = true
     }

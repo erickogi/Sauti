@@ -63,6 +63,7 @@ internal object SautiOutgoingController {
         }
         armWatchdog(app, config)
         CallForegroundService.start(app, title, CallPresence.CONNECTING)
+        CallForegroundService.armConnectingCanceller { abortConnecting() }
         SautiCallHost.scope.launch {
             val ticket = runCatching {
                 resolveTicket(config.tokenProvider, SautiTokenRequest.Outgoing(target, metadata)) {
@@ -197,7 +198,15 @@ internal object SautiOutgoingController {
         runCatching { config.onOutgoingFailed() }
     }
 
+    private fun abortConnecting() {
+        synchronized(this) {
+            if (!busy) return
+        }
+        reset()
+    }
+
     private fun reset() {
+        CallForegroundService.clearConnectingCanceller()
         watchdog?.cancel()
         watchdog = null
         val record = live

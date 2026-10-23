@@ -58,6 +58,7 @@ class CallForegroundService : Service() {
         }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         owningClient = adoption.client
+        connectingCanceller = null
         storedIntents = adoption.intents
         serviceScope = scope
         hasConnected = false
@@ -83,6 +84,7 @@ class CallForegroundService : Service() {
     private fun endCall() {
         val client = owningClient
         if (client == null) {
+            invokeConnectingCanceller()
             stopSelfCompat()
             return
         }
@@ -171,6 +173,23 @@ class CallForegroundService : Service() {
         private val currentEndReason = MutableStateFlow<EndReason?>(null)
         val endedReason: StateFlow<EndReason?> get() = currentEndReason.asStateFlow()
 
+        @Volatile
+        private var connectingCanceller: (() -> Unit)? = null
+
+        fun armConnectingCanceller(canceller: () -> Unit) {
+            connectingCanceller = canceller
+        }
+
+        fun clearConnectingCanceller() {
+            connectingCanceller = null
+        }
+
+        private fun invokeConnectingCanceller() {
+            val canceller = connectingCanceller
+            connectingCanceller = null
+            canceller?.invoke()
+        }
+
         internal fun decideEndReason(hadConnected: Boolean): EndReason =
             if (hadConnected) EndReason.COMPLETED else EndReason.FAILED
 
@@ -215,21 +234,23 @@ class CallForegroundService : Service() {
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            runCatching { context.startService(intent) }
         }
 
         fun rearmTelephony(context: Context) {
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_REARM
             }
-            context.startService(intent)
+            runCatching { context.startService(intent) }
         }
 
         private fun startServiceCompat(context: Context, intent: Intent) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             }
         }
     }

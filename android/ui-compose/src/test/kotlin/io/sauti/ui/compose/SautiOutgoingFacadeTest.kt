@@ -3,11 +3,14 @@ package io.sauti.ui.compose
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import io.sauti.android.service.CallForegroundService
 import io.sauti.android.service.CallPresence
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
@@ -61,6 +64,49 @@ class SautiOutgoingFacadeTest {
             CallPresence.CONNECTING.name,
             started.getStringExtra(CallForegroundService.EXTRA_PRESENCE)
         )
+    }
+
+    @Test
+    fun startCallThatFailsTicketStopsThePreStartedService() {
+        Sauti.configure(SautiCallHost.Config(onAccept = { null }, onDecline = {}, onStartCall = { null }))
+
+        Sauti.startCall(context, "target-1", mapOf("name" to "Ada"))
+
+        val app = shadowOf(context as Application)
+        val preStart = app.nextStartedService
+        assertNotNull(preStart)
+        assertNull(preStart.action)
+        assertEquals(
+            CallPresence.CONNECTING.name,
+            preStart.getStringExtra(CallForegroundService.EXTRA_PRESENCE)
+        )
+        val stop = app.nextStartedService
+        assertNotNull(stop)
+        assertEquals(CallForegroundService.ACTION_STOP, stop.action)
+    }
+
+    @Test
+    fun hangupDuringConnectingWindowAbortsTheOutgoingAttempt() {
+        val gate = CompletableDeferred<SautiSessionTicket?>()
+        Sauti.configure(
+            SautiCallHost.Config(onAccept = { null }, onDecline = {}, onStartCall = { gate.await() })
+        )
+
+        Sauti.startCall(context, "target-1", mapOf("name" to "Ada"))
+        val app = shadowOf(context as Application)
+        assertNotNull(app.nextStartedActivity)
+
+        val stopIntent = Intent(context, CallForegroundService::class.java).apply {
+            action = CallForegroundService.ACTION_STOP
+        }
+        val service = Robolectric.buildService(CallForegroundService::class.java, stopIntent).create().get()
+        service.onStartCommand(stopIntent, 0, 1)
+
+        Sauti.startCall(context, "target-2", mapOf("name" to "Bob"))
+
+        val second = app.nextStartedActivity
+        assertNotNull(second)
+        assertEquals("Bob", second.getStringExtra(SautiCallActivity.EXTRA_OUTGOING_TITLE))
     }
 
     @Test

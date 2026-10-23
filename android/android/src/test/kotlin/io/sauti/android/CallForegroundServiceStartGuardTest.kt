@@ -32,6 +32,8 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadow.api.Shadow
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -116,6 +118,32 @@ class NotAllowedThrowingShadowService {
     }
 }
 
+@Implements(Service::class)
+class PlainIseThrowingShadowService {
+    var stopSelfCalled = false
+
+    @Implementation
+    fun startForeground(id: Int, notification: Notification, foregroundServiceType: Int) {
+        throw IllegalStateException("unrelated illegal state")
+    }
+
+    @Implementation
+    fun startForeground(id: Int, notification: Notification) {
+        throw IllegalStateException("unrelated illegal state")
+    }
+
+    @Implementation
+    fun stopForeground(flags: Int) = Unit
+
+    @Implementation
+    fun stopForeground(removeNotification: Boolean) = Unit
+
+    @Implementation
+    fun stopSelf() {
+        stopSelfCalled = true
+    }
+}
+
 private object StartGuardSupport {
 
     val request = SautiJoinRequest(
@@ -145,6 +173,10 @@ private object StartGuardSupport {
 
     fun adoptIntent(context: Context) = Intent(context, CallForegroundService::class.java).apply {
         action = CallForegroundService.ACTION_ADOPT
+    }
+
+    fun stopIntent(context: Context) = Intent(context, CallForegroundService::class.java).apply {
+        action = CallForegroundService.ACTION_STOP
     }
 
     fun intents(context: Context) = SautiCallIntents(
@@ -220,5 +252,64 @@ class CallForegroundServiceNotAllowedGuardTest {
         assertEquals(EndReason.FAILED, CallForegroundService.endedReason.value)
         assertNull(CallForegroundService.call.value)
         assertTrue(Shadow.extract<NotAllowedThrowingShadowService>(service).stopSelfCalled)
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [30], shadows = [PlainIseThrowingShadowService::class])
+class CallForegroundServicePlainIseRethrowTest {
+
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun plainIllegalStateBelowApi31IsRethrownAndNotResolvedAsNotAllowed() {
+        val intent = StartGuardSupport.connectingIntent(context)
+        val service = Robolectric.buildService(CallForegroundService::class.java, intent).create().get()
+
+        assertFailsWith<IllegalStateException> {
+            service.onStartCommand(intent, 0, 1)
+        }
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+class CallForegroundServiceConnectingCancellerTest {
+
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun stopInConnectingStateInvokesArmedCancellerExactlyOnce() {
+        var cancelCount = 0
+        CallForegroundService.armConnectingCanceller { cancelCount += 1 }
+
+        val startIntent = StartGuardSupport.connectingIntent(context)
+        val service = Robolectric.buildService(CallForegroundService::class.java, startIntent).create().get()
+        service.onStartCommand(startIntent, 0, 1)
+
+        val stopIntent = StartGuardSupport.stopIntent(context)
+        service.onStartCommand(stopIntent, 0, 2)
+        service.onStartCommand(stopIntent, 0, 3)
+
+        assertEquals(1, cancelCount)
+    }
+
+    @Test
+    fun adoptClearsCancellerSoStopDoesNotInvokeIt() {
+        var cancelled = false
+        CallForegroundService.armConnectingCanceller { cancelled = true }
+
+        val client = StartGuardSupport.buildClient(context)
+        CallForegroundService.startCall(
+            context, client, StartGuardSupport.request, StartGuardSupport.intents(context),
+            enableTelephonyAutoMute = true
+        )
+        val adoptIntent = StartGuardSupport.adoptIntent(context)
+        val service = Robolectric.buildService(CallForegroundService::class.java, adoptIntent).create().get()
+        service.onStartCommand(adoptIntent, 0, 1)
+
+        service.onStartCommand(StartGuardSupport.stopIntent(context), 0, 2)
+
+        assertFalse(cancelled)
     }
 }
