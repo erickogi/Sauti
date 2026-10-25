@@ -14,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.sauti.ui.compose.overlay.MicOffGlyph
@@ -23,12 +26,22 @@ import io.sauti.ui.compose.overlay.MinimizeGlyph
 fun SautiSoloCallScreen(
     uiState: SautiCallUiState,
     modifier: Modifier = Modifier,
+    outgoing: Boolean = false,
+    redesignEnabled: Boolean = false,
+    outgoingName: String = "",
     onEnd: (() -> Unit)? = null,
     onMinimize: (() -> Unit)? = null
 ) {
     val strings = LocalSautiStrings.current
     val title = uiState.others.firstOrNull()?.label
     val peerMuted = uiState.others.any { it.muted }
+    val ringbackStatus = outgoingRingbackStatus(
+        redesignEnabled = redesignEnabled,
+        outgoing = outgoing,
+        hasSession = true,
+        hasOthers = uiState.hasOthers,
+        strings = strings
+    )
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -46,27 +59,47 @@ fun SautiSoloCallScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (title != null) {
-                    SautiAvatar(name = title)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                if (ringbackStatus != null) {
+                    SautiCallingPulse {
+                        SautiAvatar(name = outgoingName, fallbackGlyph = true)
+                    }
+                    if (outgoingName.isNotBlank()) {
                         Text(
-                            text = title,
+                            text = outgoingName,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = SautiTheme.colors.onSurface
                         )
-                        if (peerMuted) {
-                            MicOffGlyph(
-                                color = SautiTheme.colors.onSurfaceMuted,
-                                modifier = Modifier.size(20.dp)
+                    }
+                    Text(
+                        text = ringbackStatus,
+                        style = SautiTheme.typography.status,
+                        color = SautiTheme.colors.onSurfaceMuted,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                    )
+                } else {
+                    if (title != null) {
+                        SautiAvatar(name = title)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = SautiTheme.colors.onSurface
                             )
+                            if (peerMuted) {
+                                MicOffGlyph(
+                                    color = SautiTheme.colors.onSurfaceMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
+                    CallStatus(uiState = uiState)
                 }
-                CallStatus(uiState = uiState)
                 Text(
                     text = formatDuration(uiState.durationMs),
                     style = MaterialTheme.typography.headlineMedium,

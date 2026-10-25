@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 fun SautiConnectingScreen(
     callerName: String,
     modifier: Modifier = Modifier,
+    status: String? = null,
+    showPulse: Boolean = false,
     onCancel: (() -> Unit)? = null
 ) {
     val strings = LocalSautiStrings.current
@@ -43,7 +45,19 @@ fun SautiConnectingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (callerName.isNotBlank()) {
+                if (showPulse) {
+                    SautiCallingPulse {
+                        SautiAvatar(name = callerName, fallbackGlyph = true)
+                    }
+                    if (callerName.isNotBlank()) {
+                        Text(
+                            text = callerName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = SautiTheme.colors.onSurface
+                        )
+                    }
+                } else if (callerName.isNotBlank()) {
                     SautiAvatar(name = callerName)
                     Text(
                         text = callerName,
@@ -53,7 +67,7 @@ fun SautiConnectingScreen(
                     )
                 }
                 Text(
-                    text = strings.connecting,
+                    text = status ?: strings.connecting,
                     style = SautiTheme.typography.status,
                     color = SautiTheme.colors.onSurfaceMuted,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
