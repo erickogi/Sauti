@@ -12,6 +12,8 @@ data class SautiStrings(
     val muted: String = "Muted",
     val end: String = "End",
     val connecting: String = "Connecting",
+    val calling: String = "Calling…",
+    val ringing: String = "Ringing…",
     val reconnecting: String = "Reconnecting…",
     val inCall: String = "In call",
     val waitingForPeer: String = "Waiting for someone to join",

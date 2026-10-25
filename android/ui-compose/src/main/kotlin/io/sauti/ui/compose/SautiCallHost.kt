@@ -66,6 +66,7 @@ object SautiCallHost {
         val colors: SautiColors? = null,
         val typography: SautiTypography? = null,
         val strings: SautiStrings = SautiStrings(),
+        val outgoingCallRedesign: Boolean = true,
         val acceptPermissions: List<String> = listOf(Manifest.permission.RECORD_AUDIO),
         val onAcceptPermissionDenied: () -> Unit = {},
         val onAfterAccept: (SautiIncomingCall) -> Unit = {},
