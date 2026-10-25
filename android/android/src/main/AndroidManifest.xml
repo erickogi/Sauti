@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
-    <application android:usesCleartextTraffic="true">
+    <application>
 
         <service
             android:name="io.sauti.android.service.CallForegroundService"
