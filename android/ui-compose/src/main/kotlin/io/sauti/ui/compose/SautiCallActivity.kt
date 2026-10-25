@@ -235,7 +235,11 @@ class SautiCallActivity : ComponentActivity() {
         SautiTheme(colors = config.colors, typography = config.typography, strings = config.strings) {
             when (resolveHostScreen(phase, session != null, incomingCall != null)) {
                 SautiHostScreen.INCOMING -> IncomingContent()
-                SautiHostScreen.CONNECTING -> SautiConnectingScreen(callerName = callerName())
+                SautiHostScreen.CONNECTING -> SautiConnectingScreen(
+                    callerName = callerName(),
+                    status = connectingStatus(outgoing, config.outgoingCallRedesign, config.strings),
+                    showPulse = connectingShowsCalling(outgoing, config.outgoingCallRedesign)
+                )
                 SautiHostScreen.SOLO -> InCallContent(session)
                 SautiHostScreen.ENDED -> SautiConnectingScreen(callerName = callerName())
             }
@@ -293,6 +297,9 @@ class SautiCallActivity : ComponentActivity() {
         val uiState = rememberSautiCallUiState(active, active.selfParticipantId)
         SautiSoloCallScreen(
             uiState = uiState,
+            outgoing = outgoing,
+            redesignEnabled = config.outgoingCallRedesign,
+            outgoingName = outgoingTitle,
             onEnd = { onEndClicked() },
             onMinimize = { minimize() }
         )
