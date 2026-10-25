@@ -65,5 +65,6 @@ export interface ActiveRoom {
 export interface SautiServer {
   attach(httpServer: import('http').Server, opts?: { path?: string }): void;
   listActiveRooms(): Promise<ActiveRoom[]>;
+  closeRoom(roomId: string): Promise<number>;
   close(): Promise<void>;
 }
