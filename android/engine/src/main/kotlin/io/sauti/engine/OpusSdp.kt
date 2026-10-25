@@ -1,6 +1,10 @@
 package io.sauti.engine
 
-data class OpusConfig(val fec: Boolean = false, val dtx: Boolean = false)
+data class OpusConfig(val fec: Boolean = false, val dtx: Boolean = false) {
+    companion object {
+        val VoiceDefault = OpusConfig(fec = true)
+    }
+}
 
 private data class SdpLine(var content: String, var eol: String)
 

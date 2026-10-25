@@ -484,4 +484,28 @@ class OpusSdpTest {
         assertFalse(config.fec)
         assertFalse(config.dtx)
     }
+
+    @Test
+    fun voiceDefaultEnablesFecAndLeavesDtxOff() {
+        assertTrue(OpusConfig.VoiceDefault.fec)
+        assertFalse(OpusConfig.VoiceDefault.dtx)
+    }
+
+    @Test
+    fun voiceDefaultMungesInbandFecWithoutDtx() {
+        val sdp = join(baseWithFmtp)
+        val config = OpusConfig.VoiceDefault
+        val out = transformOpusSdp(sdp, dtx = config.dtx, fec = config.fec)
+        assertTrue(out.contains("a=fmtp:111 minptime=10;useinbandfec=1"))
+        assertFalse(out.contains("usedtx"))
+    }
+
+    @Test
+    fun fecOffOmitsInbandFec() {
+        val sdp = join(baseWithFmtp)
+        val config = OpusConfig(fec = false)
+        val out = transformOpusSdp(sdp, dtx = config.dtx, fec = config.fec)
+        assertEquals(sdp, out)
+        assertFalse(out.contains("useinbandfec"))
+    }
 }
