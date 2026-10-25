@@ -67,7 +67,7 @@ internal object SautiOutgoingController {
         }
         armWatchdog(app, config)
         CallForegroundService.start(app, title, CallPresence.CONNECTING)
-        CallForegroundService.armConnectingCanceller { abortConnecting() }
+        CallForegroundService.armConnectingCanceller { abortConnecting(startGeneration) }
         SautiCallHost.scope.launch {
             val ticket = runCatching {
                 resolveTicket(config.tokenProvider, SautiTokenRequest.Outgoing(target, metadata)) {
@@ -83,7 +83,6 @@ internal object SautiOutgoingController {
                 return@launch
             }
             if (!OutgoingStartGuard.shouldProceedAfterStart(startGeneration, generation)) {
-                CallForegroundService.stop(app)
                 if (ticket.callId.isNotBlank()) {
                     runCatching { config.onCancelCall(ticket.callId) }
                 }
@@ -202,14 +201,22 @@ internal object SautiOutgoingController {
         runCatching { config.onOutgoingFailed() }
     }
 
-    private fun abortConnecting() {
+    private fun abortConnecting(startGeneration: Int) {
         val app = synchronized(this) {
             if (!busy) return
+            if (generation != startGeneration) return
             appContext
         }
         reset()
         app?.let { CallForegroundService.stopAdopted(it) }
     }
+
+    internal fun resetForTest() {
+        reset()
+        appContext = null
+    }
+
+    internal fun isBusyForTest(): Boolean = busy
 
     private fun reset() {
         CallForegroundService.clearConnectingCanceller()
