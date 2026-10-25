@@ -10,6 +10,7 @@ import io.sauti.android.net.ConnectivityPolicy
 import io.sauti.android.net.ConnectivityWatcher
 import io.sauti.android.persistence.ResumeStore
 import io.sauti.engine.EngineConfig
+import io.sauti.engine.OpusConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,14 +27,15 @@ object SautiTelecomClient {
         engineConfig: EngineConfig = EngineConfig(),
         scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob()),
         connectivityPolicy: ConnectivityPolicy = ConnectivityPolicy(),
-        enableProximity: Boolean = false
+        enableProximity: Boolean = false,
+        opus: OpusConfig = OpusConfig.VoiceDefault
     ): SautiClient = build(
         context = context,
         scope = scope,
         connectivityPolicy = connectivityPolicy,
         enableProximity = enableProximity,
         audio = TelecomAudioController(context.applicationContext),
-        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope)
+        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope, opus = opus)
     )
 
     internal fun build(

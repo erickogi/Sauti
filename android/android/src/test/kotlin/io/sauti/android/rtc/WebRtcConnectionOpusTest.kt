@@ -64,4 +64,20 @@ class WebRtcConnectionOpusTest {
         val once = connection.applyOpus(offerSdp)
         assertEquals(once, connection.applyOpus(once))
     }
+
+    @Test
+    fun voiceDefaultConnectionMungesInbandFecWithoutDtx() {
+        val connection = WebRtcConnection("sauti-stream", OpusConfig.VoiceDefault)
+        val offer = connection.applyOpus(offerSdp)
+        assertTrue(offer.contains("a=fmtp:111 minptime=10;useinbandfec=1"))
+        assertFalse(offer.contains("usedtx"))
+        assertTrue(connection.applyOpus(answerSdp).contains("a=fmtp:111 useinbandfec=1"))
+    }
+
+    @Test
+    fun fecOffConnectionOmitsInbandFec() {
+        val connection = WebRtcConnection("sauti-stream", OpusConfig(fec = false))
+        assertEquals(offerSdp, connection.applyOpus(offerSdp))
+        assertFalse(connection.applyOpus(offerSdp).contains("useinbandfec"))
+    }
 }

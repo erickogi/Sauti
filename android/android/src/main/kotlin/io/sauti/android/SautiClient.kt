@@ -22,6 +22,7 @@ import io.sauti.engine.CallEvent
 import io.sauti.engine.CallState
 import io.sauti.engine.EngineConfig
 import io.sauti.engine.JoinConfig
+import io.sauti.engine.OpusConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -108,12 +109,13 @@ class SautiClient internal constructor(
         interruptionPolicy: InterruptionPolicy = InterruptionPolicy(),
         enableProximity: Boolean = false,
         audioProcessing: AudioProcessingConfig = AudioProcessingConfig(),
+        opus: OpusConfig = OpusConfig.VoiceDefault,
         enableTelephonyAutoMute: Boolean = true
     ) : this(
         context = context,
         scope = scope,
         audio = AudioSessionCoordinator(context.applicationContext),
-        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope, audioProcessing),
+        engine = WebRtcCallEngine(context.applicationContext, engineConfig, scope, audioProcessing, opus),
         resumeStore = ResumeStore(context.applicationContext),
         telephonyFactory = { ctx, cb -> TelephonyWatcher(ctx, cb) },
         connectivityFactory = { ctx, cb -> ConnectivityWatcher(ctx, cb) },
