@@ -736,5 +736,38 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
     await new Promise<void>((resolve) => wss.close(() => resolve()));
   }
 
-  return { attach, listActiveRooms, close };
+  // Close a room from outside a socket, for a backend that needs to end a call the
+  // clients did not hang up. Reuses the participant-left frame each client already
+  // honors when a peer leaves (no new frame, no client change): with every participant
+  // reported gone, each client's last-peer-leaves teardown fires. Publishing on the
+  // room channel reaches participants on any pod. Best-effort per participant so one
+  // failure does not strand the rest; throws if any eviction could not complete so the
+  // caller can retry. A lone remaining participant is not ended by this (there is no
+  // peer to report as leaving); the caller is expected to stop authorizing the room so
+  // it cannot be rejoined. Returns the number of participants evicted.
+  async function closeRoom(roomId: string): Promise<number> {
+    const participantIds = Object.keys(await redis.hgetall(roomKey(roomId)));
+    if (participantIds.length === 0) return 0;
+    let failures = 0;
+    for (const participantId of participantIds) {
+      try {
+        await redis.hdel(roomKey(roomId), participantId);
+        await publishRoom(roomId, {
+          kind: 'broadcast',
+          exclude: participantId,
+          frame: { v: 1, type: 'participant-left', participantId }
+        });
+        emit('participant.left', roomId, participantId, { reason: 'room_closed' });
+      } catch {
+        failures += 1;
+      }
+    }
+    await cleanupRedisRoomIfEmpty(roomId);
+    if (failures > 0) {
+      throw new Error(`sauti: closeRoom could not evict ${failures} participant(s)`);
+    }
+    return participantIds.length;
+  }
+
+  return { attach, listActiveRooms, close, closeRoom };
 }
