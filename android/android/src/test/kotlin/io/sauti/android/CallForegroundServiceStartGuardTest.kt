@@ -34,6 +34,7 @@ import org.robolectric.shadow.api.Shadow
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -179,6 +180,10 @@ private object StartGuardSupport {
         action = CallForegroundService.ACTION_STOP
     }
 
+    fun stopAdoptedIntent(context: Context) = Intent(context, CallForegroundService::class.java).apply {
+        action = CallForegroundService.ACTION_STOP_ADOPTED
+    }
+
     fun intents(context: Context) = SautiCallIntents(
         CallNotification.placeholderIntent(context),
         CallNotification.hangupIntent(context)
@@ -269,6 +274,44 @@ class CallForegroundServicePlainIseRethrowTest {
         assertFailsWith<IllegalStateException> {
             service.onStartCommand(intent, 0, 1)
         }
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+class CallForegroundServiceAdoptedTeardownTest {
+
+    private val context: Context get() = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun stopAdoptedTearsDownAnAdoptedClient() {
+        CallForegroundService.clearConnectingCanceller()
+        val client = StartGuardSupport.buildClient(context)
+        CallForegroundService.startCall(
+            context, client, StartGuardSupport.request, StartGuardSupport.intents(context),
+            enableTelephonyAutoMute = true
+        )
+        val adoptIntent = StartGuardSupport.adoptIntent(context)
+        val service = Robolectric.buildService(CallForegroundService::class.java, adoptIntent).create().get()
+        service.onStartCommand(adoptIntent, 0, 1)
+        assertNotNull(CallForegroundService.call.value)
+
+        service.onStartCommand(StartGuardSupport.stopAdoptedIntent(context), 0, 2)
+
+        assertNull(CallForegroundService.call.value)
+    }
+
+    @Test
+    fun stopAdoptedWithoutAClientDoesNotInvokeTheConnectingCanceller() {
+        var cancelled = false
+        CallForegroundService.armConnectingCanceller { cancelled = true }
+
+        val stopAdopted = StartGuardSupport.stopAdoptedIntent(context)
+        val service = Robolectric.buildService(CallForegroundService::class.java, stopAdopted).create().get()
+        service.onStartCommand(stopAdopted, 0, 1)
+
+        assertFalse(cancelled)
+        CallForegroundService.clearConnectingCanceller()
     }
 }
 

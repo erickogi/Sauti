@@ -34,6 +34,9 @@ internal object SautiOutgoingController {
     private var live: Live? = null
 
     @Volatile
+    private var appContext: Context? = null
+
+    @Volatile
     private var watchdog: Job? = null
 
     @Volatile
@@ -52,6 +55,7 @@ internal object SautiOutgoingController {
             startGeneration = generation
         }
         val app = context.applicationContext
+        appContext = app
         val title = metadata["name"]?.takeIf { it.isNotBlank() } ?: ""
         val launched = runCatching {
             context.startActivity(SautiCallActivity.outgoingIntent(context, title))
@@ -199,10 +203,12 @@ internal object SautiOutgoingController {
     }
 
     private fun abortConnecting() {
-        synchronized(this) {
+        val app = synchronized(this) {
             if (!busy) return
+            appContext
         }
         reset()
+        app?.let { CallForegroundService.stopAdopted(it) }
     }
 
     private fun reset() {

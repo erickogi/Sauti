@@ -36,6 +36,7 @@ class CallForegroundService : Service() {
         when {
             intent == null -> stopSelfCompat()
             intent.action == ACTION_STOP -> endCall()
+            intent.action == ACTION_STOP_ADOPTED -> endAdopted()
             intent.action == ACTION_ADOPT -> adopt()
             intent.action == ACTION_REARM -> rearmTelephony()
             else -> {
@@ -100,6 +101,14 @@ class CallForegroundService : Service() {
         stopSelfCompat()
     }
 
+    private fun endAdopted() {
+        if (owningClient == null) {
+            stopSelfCompat()
+            return
+        }
+        endCall()
+    }
+
     private fun rearmTelephony() {
         val client = owningClient
         if (client == null) {
@@ -161,6 +170,7 @@ class CallForegroundService : Service() {
 
     companion object {
         const val ACTION_STOP = "io.sauti.android.action.STOP"
+        const val ACTION_STOP_ADOPTED = "io.sauti.android.action.STOP_ADOPTED"
         const val ACTION_ADOPT = "io.sauti.android.action.ADOPT"
         const val ACTION_REARM = "io.sauti.android.action.REARM"
         const val EXTRA_TITLE = "io.sauti.android.extra.TITLE"
@@ -233,6 +243,13 @@ class CallForegroundService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_STOP
+            }
+            runCatching { context.startService(intent) }
+        }
+
+        fun stopAdopted(context: Context) {
+            val intent = Intent(context, CallForegroundService::class.java).apply {
+                action = ACTION_STOP_ADOPTED
             }
             runCatching { context.startService(intent) }
         }
