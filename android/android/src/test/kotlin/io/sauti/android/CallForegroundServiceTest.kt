@@ -37,6 +37,36 @@ class CallForegroundServiceTest {
         assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE, foregroundServiceTypeOf(shadow))
     }
 
+    @Test
+    fun startsForegroundNotificationWithBlankTitle() {
+        val app = RuntimeEnvironment.getApplication()
+        val intent = Intent(app, CallForegroundService::class.java).apply {
+            putExtra(CallForegroundService.EXTRA_TITLE, "")
+            putExtra(CallForegroundService.EXTRA_PRESENCE, CallPresence.CONNECTING.name)
+        }
+
+        val service = Robolectric.buildService(CallForegroundService::class.java, intent).create().get()
+        service.onStartCommand(intent, 0, 1)
+
+        val shadow = shadowOf(service)
+        assertNotNull(shadow.lastForegroundNotification)
+        assertEquals(CallNotification.NOTIFICATION_ID, shadow.lastForegroundNotificationId)
+    }
+
+    @Test
+    fun startsForegroundNotificationWithMissingTitle() {
+        val app = RuntimeEnvironment.getApplication()
+        val intent = Intent(app, CallForegroundService::class.java).apply {
+            putExtra(CallForegroundService.EXTRA_PRESENCE, CallPresence.CONNECTING.name)
+        }
+
+        val service = Robolectric.buildService(CallForegroundService::class.java, intent).create().get()
+        service.onStartCommand(intent, 0, 1)
+
+        val shadow = shadowOf(service)
+        assertNotNull(shadow.lastForegroundNotification)
+    }
+
     private fun foregroundServiceTypeOf(shadow: ShadowService): Int {
         val method = ShadowService::class.java.getDeclaredMethod("getForegroundServiceType")
         method.isAccessible = true

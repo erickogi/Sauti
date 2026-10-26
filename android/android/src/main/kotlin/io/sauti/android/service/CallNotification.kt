@@ -21,6 +21,7 @@ object CallNotification {
     const val CHANNEL_ID = "sauti_ongoing_call"
     const val LEGACY_CHANNEL_ID = "sauti_calls"
     const val NOTIFICATION_ID = 0x5A07
+    const val DEFAULT_CALLER_NAME = "Call"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -41,13 +42,14 @@ object CallNotification {
 
     fun build(
         context: Context,
-        title: String,
+        title: String?,
         presence: CallPresence,
         fullScreenIntent: PendingIntent,
         hangupIntent: PendingIntent,
         contentIntent: PendingIntent? = null
     ): Notification {
         ensureChannel(context)
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: DEFAULT_CALLER_NAME
         val text = when (presence) {
             CallPresence.CONNECTING -> context.getString(io.sauti.android.R.string.sauti_call_connecting)
             CallPresence.ONGOING -> context.getString(io.sauti.android.R.string.sauti_call_ongoing)
@@ -55,12 +57,12 @@ object CallNotification {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return buildCallStyle(context, title, text, fullScreenIntent, hangupIntent, contentIntent)
+            return buildCallStyle(context, safeTitle, text, fullScreenIntent, hangupIntent, contentIntent)
         }
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_phone_call)
-            .setContentTitle(title)
+            .setContentTitle(safeTitle)
             .setContentText(text)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)

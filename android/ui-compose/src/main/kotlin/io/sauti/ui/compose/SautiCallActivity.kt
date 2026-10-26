@@ -578,10 +578,10 @@ class SautiCallActivity : ComponentActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
 
-        fun outgoingIntent(context: Context, title: String): Intent =
+        fun outgoingIntent(context: Context, title: String?): Intent =
             Intent(context, SautiCallActivity::class.java).apply {
                 putExtra(EXTRA_OUTGOING, true)
-                putExtra(EXTRA_OUTGOING_TITLE, title)
+                title?.let { putExtra(EXTRA_OUTGOING_TITLE, it) }
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
 

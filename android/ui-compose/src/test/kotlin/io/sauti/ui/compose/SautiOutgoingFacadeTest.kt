@@ -39,7 +39,7 @@ class SautiOutgoingFacadeTest {
     }
 
     @Test
-    fun startCallWithoutNameCarriesAnEmptyTitleButStillOpensTheHost() {
+    fun startCallWithoutNameCarriesNoTitleButStillOpensTheHost() {
         Sauti.configure(SautiCallHost.Config(onAccept = { null }, onDecline = {}))
 
         Sauti.startCall(context, "target-2")
@@ -47,7 +47,7 @@ class SautiOutgoingFacadeTest {
         val started = shadowOf(context as Application).nextStartedActivity
         assertNotNull(started)
         assertTrue(started.getBooleanExtra(SautiCallActivity.EXTRA_OUTGOING, false))
-        assertEquals("", started.getStringExtra(SautiCallActivity.EXTRA_OUTGOING_TITLE))
+        assertNull(started.getStringExtra(SautiCallActivity.EXTRA_OUTGOING_TITLE))
     }
 
     @Test

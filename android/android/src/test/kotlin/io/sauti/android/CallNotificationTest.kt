@@ -37,6 +37,48 @@ class CallNotificationTest {
     }
 
     @Test
+    fun buildsCallStyleWithBlankTitle() {
+        val notification = CallNotification.build(
+            context = context,
+            title = "",
+            presence = CallPresence.CONNECTING,
+            fullScreenIntent = CallNotification.placeholderIntent(context),
+            hangupIntent = CallNotification.hangupIntent(context)
+        )
+        val person = notification.extras.getParcelable<android.app.Person>(Notification.EXTRA_CALL_PERSON)
+        assertNotNull(person)
+        assertTrue(!person.name.isNullOrBlank())
+    }
+
+    @Test
+    fun buildsCallStyleWithWhitespaceTitle() {
+        val notification = CallNotification.build(
+            context = context,
+            title = "   ",
+            presence = CallPresence.CONNECTING,
+            fullScreenIntent = CallNotification.placeholderIntent(context),
+            hangupIntent = CallNotification.hangupIntent(context)
+        )
+        val person = notification.extras.getParcelable<android.app.Person>(Notification.EXTRA_CALL_PERSON)
+        assertNotNull(person)
+        assertTrue(!person.name.isNullOrBlank())
+    }
+
+    @Test
+    fun buildsCallStyleWithNullTitle() {
+        val notification = CallNotification.build(
+            context = context,
+            title = null,
+            presence = CallPresence.CONNECTING,
+            fullScreenIntent = CallNotification.placeholderIntent(context),
+            hangupIntent = CallNotification.hangupIntent(context)
+        )
+        val person = notification.extras.getParcelable<android.app.Person>(Notification.EXTRA_CALL_PERSON)
+        assertNotNull(person)
+        assertTrue(!person.name.isNullOrBlank())
+    }
+
+    @Test
     fun ongoingChannelIsLowImportance() {
         CallNotification.build(
             context = context,

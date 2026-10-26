@@ -38,7 +38,7 @@ data class SautiJoinRequest(
     val roomId: String,
     val participantId: String,
     val slotGeneration: Long,
-    val displayTitle: String,
+    val displayTitle: String? = null,
     val endWhenLastPeerLeaves: Boolean = false
 )
 
@@ -145,7 +145,7 @@ class SautiClient internal constructor(
         engine.join(JoinConfig(request.url, request.token, request.endWhenLastPeerLeaves))
     }
 
-    private suspend fun observeStateForNotification(title: String) {
+    private suspend fun observeStateForNotification(title: String?) {
         engine.state
             .map { presenceOf(it) }
             .distinctUntilChanged()

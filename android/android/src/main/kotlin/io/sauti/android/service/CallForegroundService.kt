@@ -40,7 +40,7 @@ class CallForegroundService : Service() {
             intent.action == ACTION_ADOPT -> adopt()
             intent.action == ACTION_REARM -> rearmTelephony()
             else -> {
-                val title = intent.getStringExtra(EXTRA_TITLE) ?: DEFAULT_TITLE
+                val title = intent.getStringExtra(EXTRA_TITLE)
                 val presence = presenceOf(intent.getStringExtra(EXTRA_PRESENCE))
                 if (!goForeground(title, presence)) stopSelfCompat()
             }
@@ -118,7 +118,7 @@ class CallForegroundService : Service() {
         if (autoMuteEnabled) client.rearmTelephony()
     }
 
-    private fun goForeground(title: String, presence: CallPresence): Boolean {
+    private fun goForeground(title: String?, presence: CallPresence): Boolean {
         val intents = storedIntents
         val notification = CallNotification.build(
             context = this,
@@ -175,7 +175,6 @@ class CallForegroundService : Service() {
         const val ACTION_REARM = "io.sauti.android.action.REARM"
         const val EXTRA_TITLE = "io.sauti.android.extra.TITLE"
         const val EXTRA_PRESENCE = "io.sauti.android.extra.PRESENCE"
-        private const val DEFAULT_TITLE = "Call"
 
         private val currentCall = MutableStateFlow<SautiCall?>(null)
         val call: StateFlow<SautiCall?> get() = currentCall.asStateFlow()
@@ -226,15 +225,15 @@ class CallForegroundService : Service() {
             )?.client?.dispose()
             val intent = Intent(context, CallForegroundService::class.java).apply {
                 action = ACTION_ADOPT
-                putExtra(EXTRA_TITLE, request.displayTitle)
+                request.displayTitle?.let { putExtra(EXTRA_TITLE, it) }
                 putExtra(EXTRA_PRESENCE, CallPresence.CONNECTING.name)
             }
             startServiceCompat(context, intent)
         }
 
-        fun start(context: Context, title: String, presence: CallPresence) {
+        fun start(context: Context, title: String?, presence: CallPresence) {
             val intent = Intent(context, CallForegroundService::class.java).apply {
-                putExtra(EXTRA_TITLE, title)
+                title?.let { putExtra(EXTRA_TITLE, it) }
                 putExtra(EXTRA_PRESENCE, presence.name)
             }
             startServiceCompat(context, intent)

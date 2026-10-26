@@ -13,7 +13,7 @@ class SautiTelecomAdapter(
     private val onAnswer: () -> Unit = {}
 ) {
 
-    fun attach(displayTitle: String, participantId: String) {
+    fun attach(displayTitle: String?, participantId: String) {
         SautiConnectionService.provider = SautiConnectionProvider {
             SautiConnection(scope, client.state, displayTitle, participantId, ::onIntent)
         }

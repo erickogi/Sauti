@@ -7,6 +7,7 @@ import android.telecom.Connection
 import android.telecom.DisconnectCause
 import android.telecom.TelecomManager
 import androidx.annotation.RequiresApi
+import io.sauti.android.service.CallNotification
 import io.sauti.engine.CallState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
 class SautiConnection(
     scope: CoroutineScope,
     state: StateFlow<CallState>,
-    displayTitle: String,
+    displayTitle: String?,
     participantId: String,
     private val onIntent: (EngineIntent) -> Unit
 ) : Connection() {
@@ -24,7 +25,10 @@ class SautiConnection(
     init {
         connectionProperties = PROPERTY_SELF_MANAGED
         audioModeIsVoip = true
-        setCallerDisplayName(displayTitle, TelecomManager.PRESENTATION_ALLOWED)
+        setCallerDisplayName(
+            displayTitle?.takeIf { it.isNotBlank() } ?: CallNotification.DEFAULT_CALLER_NAME,
+            TelecomManager.PRESENTATION_ALLOWED
+        )
         setAddress(addressOf(participantId), TelecomManager.PRESENTATION_ALLOWED)
         scope.launch {
             state.collect { snapshot -> apply(TelecomReducer.reduce(snapshot, null)) }

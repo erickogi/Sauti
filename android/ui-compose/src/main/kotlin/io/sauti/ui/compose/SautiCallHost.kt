@@ -19,7 +19,7 @@ data class SautiSessionTicket(
     val token: String,
     val roomId: String,
     val participantId: String,
-    val displayTitle: String,
+    val displayTitle: String? = null,
     val slotGeneration: Long = 1L,
     val endWhenLastPeerLeaves: Boolean = true,
     val initialDevice: AudioDevice = AudioDevice.EARPIECE,

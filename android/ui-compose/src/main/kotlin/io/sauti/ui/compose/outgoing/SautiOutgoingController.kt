@@ -56,7 +56,7 @@ internal object SautiOutgoingController {
         }
         val app = context.applicationContext
         appContext = app
-        val title = metadata["name"]?.takeIf { it.isNotBlank() } ?: ""
+        val title: String? = metadata["name"]?.takeIf { it.isNotBlank() }
         val launched = runCatching {
             context.startActivity(SautiCallActivity.outgoingIntent(context, title))
         }
