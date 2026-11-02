@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.sauti.android.ring.DEFAULT_VIBRATION_PATTERN
+import io.sauti.android.ring.firstAvailable
 
 data class IncomingCallOverrides(
     val ringtoneUri: Uri? = null,
@@ -177,6 +178,8 @@ object IncomingCallNotification {
     }
 
     private fun defaultRingtone(context: Context): Uri? =
-        RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        firstAvailable(
+            { RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE) },
+            { RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) }
+        )
 }

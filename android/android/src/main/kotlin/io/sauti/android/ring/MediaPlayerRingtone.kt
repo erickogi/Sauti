@@ -15,10 +15,11 @@ internal class MediaPlayerRingtone(
 
     override fun start() {
         if (player != null) return
-        val uri = overrideUri
-            ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
-            ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION)
-            ?: return
+        val uri = overrideUri ?: firstAvailable(
+            { RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE) },
+            { RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION) },
+            { RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) }
+        ) ?: return
         val created = MediaPlayer()
         try {
             created.setDataSource(context, uri)
