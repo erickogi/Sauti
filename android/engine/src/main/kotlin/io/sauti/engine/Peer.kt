@@ -2,6 +2,7 @@ package io.sauti.engine
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 interface PeerSignal {
     fun send(text: String)
@@ -24,6 +25,7 @@ class Peer(
     private var ignoreOffer = false
     private var restartAttempted = false
     private var restartRequested = false
+    private val closed = AtomicBoolean(false)
 
     init {
         pc.onNegotiationNeeded = {
@@ -106,6 +108,7 @@ class Peer(
     }
 
     fun close() {
+        if (!closed.compareAndSet(false, true)) return
         pc.onIceCandidate = null
         pc.onRemoteAudio = null
         pc.onNegotiationNeeded = null

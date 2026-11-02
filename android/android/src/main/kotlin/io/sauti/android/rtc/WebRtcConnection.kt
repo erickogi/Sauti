@@ -7,6 +7,7 @@ import io.sauti.engine.SdpDescription
 import io.sauti.engine.StatsSample
 import io.sauti.engine.transformOpusSdp
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.atomic.AtomicBoolean
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
@@ -25,6 +26,7 @@ class WebRtcConnection(
     internal fun applyOpus(sdp: String): String = transformOpusSdp(sdp, dtx = opus.dtx, fec = opus.fec)
 
     lateinit var connection: PeerConnection
+    private val closed = AtomicBoolean(false)
 
     override var onIceCandidate: ((IceCandidate) -> Unit)? = null
     override var onIceConnectionStateChange: ((String) -> Unit)? = null
@@ -131,6 +133,7 @@ class WebRtcConnection(
     }
 
     override fun close() {
+        if (!closed.compareAndSet(false, true)) return
         connection.close()
         connection.dispose()
     }
