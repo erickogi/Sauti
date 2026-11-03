@@ -15,6 +15,7 @@ class Mesh(
     private val selfId: String,
     private val hooks: MeshHooks
 ) {
+    private val lock = Any()
     private val peers = LinkedHashMap<String, Peer>()
     private var iceServers: List<IceServer> = emptyList()
 
@@ -27,18 +28,18 @@ class Mesh(
     }
 
     fun setIceServers(servers: List<IceServer>) {
-        iceServers = servers
+        synchronized(lock) { iceServers = servers }
     }
 
-    fun has(peerId: String): Boolean = peers.containsKey(peerId)
+    fun has(peerId: String): Boolean = synchronized(lock) { peers.containsKey(peerId) }
 
-    fun ids(): List<String> = peers.keys.toList()
+    fun ids(): List<String> = synchronized(lock) { peers.keys.toList() }
 
-    fun count(): Int = peers.size
+    fun count(): Int = synchronized(lock) { peers.size }
 
-    fun ensurePeer(peerId: String): Peer = peers[peerId] ?: createPeer(peerId)
+    fun ensurePeer(peerId: String): Peer = synchronized(lock) { peers[peerId] ?: createPeerLocked(peerId) }
 
-    private fun createPeer(peerId: String): Peer {
+    private fun createPeerLocked(peerId: String): Peer {
         val pc = factory.createPeerConnection(iceServers)
         val peer = Peer(peerId, selfId, pc, scope, signal)
         peers[peerId] = peer
@@ -46,22 +47,24 @@ class Mesh(
     }
 
     fun addPeer(peerId: String): Peer {
-        val peer = createPeer(peerId)
+        val peer = synchronized(lock) { createPeerLocked(peerId) }
         peer.start()
         return peer
     }
 
     private fun rebuild(peerId: String) {
-        val old = peers[peerId] ?: return
-        old.close()
-        peers.remove(peerId)
-        createPeer(peerId).start()
+        val pair = synchronized(lock) {
+            val old = peers[peerId] ?: return
+            peers.remove(peerId)
+            old to createPeerLocked(peerId)
+        }
+        pair.first.close()
+        pair.second.start()
     }
 
     fun removePeer(peerId: String) {
-        val peer = peers[peerId] ?: return
+        val peer = synchronized(lock) { peers.remove(peerId) } ?: return
         peer.close()
-        peers.remove(peerId)
     }
 
     suspend fun routeOffer(from: String, sdp: String) {
@@ -69,21 +72,28 @@ class Mesh(
     }
 
     suspend fun routeAnswer(from: String, sdp: String) {
-        peers[from]?.onAnswer(sdp)
+        peerOf(from)?.onAnswer(sdp)
     }
 
     suspend fun routeIce(from: String, candidate: IceCandidate) {
-        peers[from]?.onIce(candidate)
+        peerOf(from)?.onIce(candidate)
     }
+
+    private fun peerOf(peerId: String): Peer? = synchronized(lock) { peers[peerId] }
 
     fun iceRestartAll() {
-        for (peer in peers.values) peer.iceRestart()
+        val snapshot = synchronized(lock) { peers.values.toList() }
+        for (peer in snapshot) peer.iceRestart()
     }
 
-    fun statsPeer(peerId: String): Peer? = peers[peerId]
+    fun statsPeer(peerId: String): Peer? = synchronized(lock) { peers[peerId] }
 
     fun teardown() {
-        for (peer in peers.values) peer.close()
-        peers.clear()
+        val snapshot = synchronized(lock) {
+            val all = peers.values.toList()
+            peers.clear()
+            all
+        }
+        for (peer in snapshot) peer.close()
     }
 }
