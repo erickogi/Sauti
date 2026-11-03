@@ -12,15 +12,21 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowConnectivityManager
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @Implements(ConnectivityManager::class)
 class RegisterThrowingConnectivityShadow : ShadowConnectivityManager() {
+    private var calls = 0
+
     @Implementation
     override fun registerNetworkCallback(
         request: NetworkRequest,
         callback: ConnectivityManager.NetworkCallback
     ) {
-        throw RuntimeException("too many requests")
+        calls += 1
+        if (calls == 1) throw RuntimeException("too many requests")
+        super.registerNetworkCallback(request, callback)
     }
 }
 
@@ -30,11 +36,23 @@ class ConnectivityWatcherRegisterGuardTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
+    private fun callbackOf(watcher: ConnectivityWatcher): Any? {
+        val field = ConnectivityWatcher::class.java.getDeclaredField("modernCallback")
+        field.isAccessible = true
+        return field.get(watcher)
+    }
+
     @Test
-    fun registrationFailureDoesNotCrashStartOrStop() {
+    fun registrationFailureLeavesNoCallbackAndAllowsRetry() {
         val watcher = ConnectivityWatcher(context) { }
 
         watcher.start()
+        assertNull(callbackOf(watcher), "a failed register must not leave a dangling callback")
+
+        watcher.start()
+        assertNotNull(callbackOf(watcher), "a retry after a failed register must succeed")
+
         watcher.stop()
+        assertNull(callbackOf(watcher))
     }
 }

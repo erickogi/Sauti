@@ -15,12 +15,17 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowTelephonyManager
 import java.util.concurrent.Executor
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @Implements(TelephonyManager::class)
 class RegisterThrowingTelephonyShadow : ShadowTelephonyManager() {
+    private var calls = 0
+
     @Implementation
     fun registerTelephonyCallback(executor: Executor, callback: TelephonyCallback) {
-        throw RuntimeException("too many requests")
+        calls += 1
+        if (calls == 1) throw RuntimeException("too many requests")
     }
 }
 
@@ -30,13 +35,25 @@ class TelephonyWatcherRegisterGuardTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
+    private fun callbackOf(watcher: TelephonyWatcher): Any? {
+        val field = TelephonyWatcher::class.java.getDeclaredField("modernCallback")
+        field.isAccessible = true
+        return field.get(watcher)
+    }
+
     @Test
-    fun registrationFailureDoesNotCrashStartOrStop() {
+    fun registrationFailureLeavesNoCallbackAndAllowsRetry() {
         shadowOf(RuntimeEnvironment.getApplication())
             .grantPermissions(android.Manifest.permission.READ_PHONE_STATE)
         val watcher = TelephonyWatcher(context) { }
 
         watcher.start()
+        assertNull(callbackOf(watcher), "a failed register must not leave a dangling callback")
+
+        watcher.start()
+        assertNotNull(callbackOf(watcher), "a retry after a failed register must succeed")
+
         watcher.stop()
+        assertNull(callbackOf(watcher))
     }
 }
