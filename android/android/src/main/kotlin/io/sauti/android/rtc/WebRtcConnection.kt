@@ -138,8 +138,8 @@ class WebRtcConnection(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
-        connection.close()
-        connection.dispose()
+        runCatching { connection.close() }
+        runCatching { connection.dispose() }
     }
 
     override fun onIceCandidate(candidate: WebRtcIceCandidate) {
