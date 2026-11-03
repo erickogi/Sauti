@@ -186,13 +186,34 @@ export const errorFrameSchema = z.object({
   message: z.string()
 });
 
+export const qualityBandSchema = z.enum(['good', 'degraded', 'poor']);
+
+export const qoeFrameSchema = z
+  .object({
+    v,
+    type: z.literal('qoe'),
+    samples: z.number().int().min(1).max(100000),
+    avgRttMs: z.number().min(0).max(5000),
+    maxRttMs: z.number().min(0).max(5000),
+    avgJitterMs: z.number().min(0).max(2000),
+    maxJitterMs: z.number().min(0).max(2000),
+    avgLoss: z.number().min(0).max(1),
+    maxLoss: z.number().min(0).max(1),
+    secGood: z.number().min(0).max(86400),
+    secDegraded: z.number().min(0).max(86400),
+    secPoor: z.number().min(0).max(86400),
+    worst: qualityBandSchema
+  })
+  .strict();
+
 export const clientFrameSchema = z.discriminatedUnion('type', [
   joinFrameSchema,
   leaveFrameSchema,
   clientStateFrameSchema,
   offerSendSchema,
   answerSendSchema,
-  iceSendSchema
+  iceSendSchema,
+  qoeFrameSchema
 ]);
 
 export const serverFrameSchema = z.discriminatedUnion('type', [
@@ -214,6 +235,8 @@ export type ClientStateFrame = z.infer<typeof clientStateFrameSchema>;
 export type OfferSendFrame = z.infer<typeof offerSendSchema>;
 export type AnswerSendFrame = z.infer<typeof answerSendSchema>;
 export type IceSendFrame = z.infer<typeof iceSendSchema>;
+export type QoeFrame = z.infer<typeof qoeFrameSchema>;
+export type QualityBand = z.infer<typeof qualityBandSchema>;
 export type OfferDeliveredFrame = z.infer<typeof offerDeliveredSchema>;
 export type AnswerDeliveredFrame = z.infer<typeof answerDeliveredSchema>;
 export type IceDeliveredFrame = z.infer<typeof iceDeliveredSchema>;

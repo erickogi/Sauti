@@ -18,6 +18,7 @@ import {
   errorFrameSchema,
   clientFrameSchema,
   serverFrameSchema,
+  qoeFrameSchema,
   isVersionMismatch,
   parseClientFrame,
   parseServerFrame
@@ -31,6 +32,41 @@ const participant: Participant = {
   connectionState: 'connected',
   state: { muted: false, onHold: false }
 };
+
+describe('qoe frame', () => {
+  const valid = {
+    v: 1,
+    type: 'qoe',
+    samples: 30,
+    avgRttMs: 120,
+    maxRttMs: 400,
+    avgJitterMs: 15,
+    maxJitterMs: 60,
+    avgLoss: 0.02,
+    maxLoss: 0.1,
+    secGood: 50,
+    secDegraded: 8,
+    secPoor: 2,
+    worst: 'degraded'
+  };
+
+  it('accepts a valid numeric-only qoe frame through the client union', () => {
+    expect(qoeFrameSchema.safeParse(valid).success).toBe(true);
+    expect(parseClientFrame(valid).success).toBe(true);
+  });
+
+  it('rejects out-of-range, NaN, wrong-type, and extra fields', () => {
+    expect(qoeFrameSchema.safeParse({ ...valid, avgLoss: 1.5 }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, maxRttMs: 99999 }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, avgRttMs: NaN }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, samples: 0 }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, samples: 1.5 }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, worst: 'terrible' }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, avgRttMs: '120' }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, note: 'pii' }).success).toBe(false);
+    expect(qoeFrameSchema.safeParse({ ...valid, v: 2 }).success).toBe(false);
+  });
+});
 
 describe('join frame', () => {
   it('accepts a valid join and rejects missing token, missing v, or v != 1', () => {
@@ -399,7 +435,7 @@ describe('server frame union', () => {
   it('enumerates only participant, room, and opaque metadata as domain-carrying fields', () => {
     const clientTypes = clientFrameSchema.options.map((o) => o.shape.type.value);
     expect(clientTypes.sort()).toEqual(
-      ['answer', 'ice', 'join', 'leave', 'offer', 'state'].sort()
+      ['answer', 'ice', 'join', 'leave', 'offer', 'qoe', 'state'].sort()
     );
     const serverTypes = serverFrameSchema.options.map((o) => o.shape.type.value);
     expect(serverTypes).toContain('participant-joined');
