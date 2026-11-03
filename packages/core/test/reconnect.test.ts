@@ -91,6 +91,27 @@ describe('reconnect and recovery', () => {
     expect(conn.h.pcs[1]).toBe(pcRefs[1]);
   });
 
+  it('restarts ICE on peers retained across a resumed ready [RC-07b]', async () => {
+    const conn = await connect(
+      readyFrame({ selfId: 'A', peers: [participant('B'), participant('C')] })
+    );
+    const pcB = conn.h.pcs[0]!;
+    const pcC = conn.h.pcs[1]!;
+    pcB.restartCount = 0;
+    pcC.restartCount = 0;
+    conn.socket.deliver(
+      readyFrame({
+        selfId: 'A',
+        peers: [participant('B'), participant('C')],
+        resumed: true
+      })
+    );
+    await flush();
+    expect(conn.h.pcs).toHaveLength(2);
+    expect(pcB.restartCount).toBe(1);
+    expect(pcC.restartCount).toBe(1);
+  });
+
   it('gives up after the attempt budget with a typed terminal error [RC-08]', async () => {
     vi.useFakeTimers();
     try {

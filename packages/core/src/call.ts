@@ -386,14 +386,23 @@ export class Call implements SautiCall {
       }
     }
     for (const peer of frame.peers) {
+      const existing = this.mesh!.has(peer.participantId);
       this.store.upsertParticipant({
         participantId: peer.participantId,
         metadata: peer.metadata,
         muted: peer.state.muted,
         onHold: peer.state.onHold,
-        connectionState: this.mesh!.has(peer.participantId) ? 'connected' : 'connecting'
+        connectionState: existing ? 'connected' : 'connecting'
       });
-      if (!this.mesh!.has(peer.participantId)) this.mesh!.addPeer(peer.participantId);
+      if (existing) {
+        try {
+          this.mesh!.statsPeer(peer.participantId)?.iceRestart();
+        } catch {
+          void 0;
+        }
+      } else {
+        this.mesh!.addPeer(peer.participantId);
+      }
     }
   }
 
