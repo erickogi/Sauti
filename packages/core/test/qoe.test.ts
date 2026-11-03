@@ -3,6 +3,7 @@ import { Emitter } from '../src/emitter.js';
 import type { QoeSample, SautiEvents } from '../src/types.js';
 import { connect, readyFrame } from './harness.js';
 import { participant } from './fakes.js';
+import { QoeAggregator } from '../src/qoe.js';
 
 const GOOD = { rttMs: 20, loss: 0, jitterMs: 5 };
 const DEGRADED = { rttMs: 250, loss: 0.04, jitterMs: 60 };
@@ -152,6 +153,123 @@ describe('qoe side channel', () => {
       expect(samples.every((s) => s.participantId !== 'A')).toBe(true);
       expect(samples).toHaveLength(1);
       expect(samples[0]!.participantId).toBe('B');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('qoe aggregator', () => {
+  it('accumulates avg/max, band seconds, and worst, then resets', () => {
+    const agg = new QoeAggregator(2);
+    agg.observe('good', 20, 0, 5);
+    agg.observe('degraded', 200, 0.04, 40);
+    agg.observe('poor', 400, 0.1, 80);
+
+    const s = agg.summary()!;
+    expect(s.samples).toBe(3);
+    expect(s.avgRttMs).toBeCloseTo((20 + 200 + 400) / 3, 1);
+    expect(s.maxRttMs).toBe(400);
+    expect(s.maxJitterMs).toBe(80);
+    expect(s.avgLoss).toBeCloseTo((0 + 0.04 + 0.1) / 3, 4);
+    expect(s.maxLoss).toBe(0.1);
+    expect(s.secGood).toBe(2);
+    expect(s.secDegraded).toBe(2);
+    expect(s.secPoor).toBe(2);
+    expect(s.worst).toBe('poor');
+
+    agg.reset();
+    expect(agg.summary()).toBeNull();
+  });
+
+  it('averages rtt only over nonzero samples and ignores NaN loss', () => {
+    const agg = new QoeAggregator(2);
+    agg.observe('good', 0, Number.NaN, 5);
+    agg.observe('good', 100, 0, 5);
+    const s = agg.summary()!;
+    expect(s.avgRttMs).toBe(100);
+    expect(s.avgLoss).toBe(0);
+  });
+});
+
+describe('qoe sender', () => {
+  const STATS = { rttMs: 100, loss: 0, jitterMs: 10, fractionLost: 0.01 };
+
+  it('sends a qoe frame on the interval and a final one before leave', async () => {
+    vi.useFakeTimers();
+    try {
+      const conn = await connect(readyFrame({ selfId: 'S', peers: [participant('A')] }), {
+        statsIntervalMs: 2000,
+        sendQoe: true,
+        qoeIntervalMs: 10000
+      });
+      conn.h.pcs[0]!.nextStats = STATS;
+      await vi.advanceTimersByTimeAsync(10000);
+      const periodic = conn.socket.frames().filter((f) => f.type === 'qoe');
+      expect(periodic.length).toBeGreaterThanOrEqual(1);
+      expect((periodic[0] as Record<string, unknown>).samples as number).toBeGreaterThanOrEqual(1);
+      expect((periodic[0] as Record<string, unknown>).worst).toBeDefined();
+
+      conn.call.leave();
+      const all = conn.socket.frames().filter((f) => f.type === 'qoe');
+      expect(all.length).toBe(periodic.length + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes a final qoe frame on leave even before the first interval', async () => {
+    vi.useFakeTimers();
+    try {
+      const conn = await connect(readyFrame({ selfId: 'S', peers: [participant('A')] }), {
+        statsIntervalMs: 2000,
+        sendQoe: true,
+        qoeIntervalMs: 10000
+      });
+      conn.h.pcs[0]!.nextStats = STATS;
+      await vi.advanceTimersByTimeAsync(2000);
+      conn.call.leave();
+      expect(conn.socket.frames().filter((f) => f.type === 'qoe')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sends no qoe frames when disabled, and the call flow is unchanged', async () => {
+    vi.useFakeTimers();
+    try {
+      const conn = await connect(readyFrame({ selfId: 'S', peers: [participant('A')] }), {
+        statsIntervalMs: 2000
+      });
+      const changed: unknown[] = [];
+      conn.call.on('quality-changed', (e) => changed.push(e));
+      conn.h.pcs[0]!.nextStats = DEGRADED;
+      await vi.advanceTimersByTimeAsync(20000);
+      conn.call.leave();
+
+      expect(conn.socket.frames().filter((f) => f.type === 'qoe')).toHaveLength(0);
+      expect(changed.length).toBeGreaterThan(0);
+      expect(conn.call.getSnapshot().phase).toBe('left');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not disturb quality events or teardown when enabled', async () => {
+    vi.useFakeTimers();
+    try {
+      const conn = await connect(readyFrame({ selfId: 'S', peers: [participant('A')] }), {
+        statsIntervalMs: 2000,
+        sendQoe: true
+      });
+      const changed: unknown[] = [];
+      conn.call.on('quality-changed', (e) => changed.push(e));
+      conn.h.pcs[0]!.nextStats = DEGRADED;
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(changed.length).toBe(1);
+      conn.call.leave();
+      expect(conn.call.getSnapshot().phase).toBe('left');
     } finally {
       vi.useRealTimers();
     }

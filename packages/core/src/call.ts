@@ -13,6 +13,7 @@ import {
 } from './errors.js';
 import { Mesh } from './mesh.js';
 import { QualityTracker } from './quality.js';
+import { QoeAggregator } from './qoe.js';
 import { SignalingClient } from './signaling.js';
 import { CallStore } from './store.js';
 import type {
@@ -63,6 +64,8 @@ export class Call implements SautiCall {
   private readonly reconnectBaseMs: number;
   private readonly reconnectMaxMs: number;
   private readonly statsIntervalMs: number;
+  private readonly sendQoe: boolean;
+  private readonly qoeIntervalMs: number;
   private readonly audioProcessing: SautiOptions['audioProcessing'];
   private readonly opus: SautiOptions['opus'];
 
@@ -80,6 +83,8 @@ export class Call implements SautiCall {
 
   private durationTimer: ReturnType<typeof setInterval> | null = null;
   private qualityTimer: ReturnType<typeof setInterval> | null = null;
+  private qoeTimer: ReturnType<typeof setInterval> | null = null;
+  private qoeAggregator: QoeAggregator | null = null;
 
   private joinResolve: (() => void) | null = null;
   private joinReject: ((error: SautiError) => void) | null = null;
@@ -96,6 +101,8 @@ export class Call implements SautiCall {
     this.reconnectBaseMs = options.reconnectBaseMs ?? 500;
     this.reconnectMaxMs = options.reconnectMaxMs ?? this.graceMs;
     this.statsIntervalMs = options.statsIntervalMs ?? 2000;
+    this.sendQoe = options.sendQoe ?? false;
+    this.qoeIntervalMs = options.qoeIntervalMs ?? 10000;
     this.audioProcessing = options.audioProcessing;
     this.opus = options.opus;
     this.store = new CallStore(() => this.runtime.now());
@@ -359,6 +366,7 @@ export class Call implements SautiCall {
     this.store.setStartedAt(frame.room.startedAt);
     if (frame.room.startedAt !== null) this.startDuration();
     this.startQuality();
+    this.startQoe();
 
     this.store.setSocketReconnecting(false);
     this.store.setPhase('connected');
@@ -457,6 +465,28 @@ export class Call implements SautiCall {
     }, this.statsIntervalMs);
   }
 
+  private startQoe(): void {
+    if (!this.sendQoe || this.qoeTimer) return;
+    try {
+      if (!this.qoeAggregator) {
+        this.qoeAggregator = new QoeAggregator(this.statsIntervalMs / 1000);
+      }
+      this.qoeTimer = setInterval(() => this.flushQoe(), this.qoeIntervalMs);
+    } catch {
+      void 0;
+    }
+  }
+
+  private flushQoe(): void {
+    try {
+      const summary = this.qoeAggregator?.summary();
+      if (!summary) return;
+      this.signaling?.send({ v: PROTOCOL_VERSION, type: 'qoe', ...summary });
+    } catch {
+      void 0;
+    }
+  }
+
   private async pollQuality(): Promise<void> {
     if (!this.mesh) return;
     let anyFallback = false;
@@ -493,6 +523,16 @@ export class Call implements SautiCall {
           fractionLost: sample.fractionLost,
           sampledAt: this.runtime.now()
         });
+      }
+      try {
+        this.qoeAggregator?.observe(
+          result.label,
+          sample.rttMs,
+          sample.fractionLost ?? 0,
+          sample.jitterMs
+        );
+      } catch {
+        void 0;
       }
       if (result.fallback) anyFallback = true;
     }
@@ -551,6 +591,7 @@ export class Call implements SautiCall {
   leave(): void {
     if (!this.active) return;
     try {
+      this.flushQoe();
       this.signaling?.send({ v: PROTOCOL_VERSION, type: 'leave' });
       this.signaling?.close();
     } finally {
@@ -567,6 +608,11 @@ export class Call implements SautiCall {
       clearInterval(this.qualityTimer);
       this.qualityTimer = null;
     }
+    if (this.qoeTimer) {
+      clearInterval(this.qoeTimer);
+      this.qoeTimer = null;
+    }
+    this.qoeAggregator = null;
     try {
       this.mesh?.teardown();
     } catch {

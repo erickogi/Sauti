@@ -158,6 +158,8 @@ export interface SautiOptions {
   reconnectBaseMs?: number;
   reconnectMaxMs?: number;
   statsIntervalMs?: number;
+  sendQoe?: boolean;
+  qoeIntervalMs?: number;
   audioProcessing?: {
     echoCancellation?: boolean;
     noiseSuppression?: boolean;
