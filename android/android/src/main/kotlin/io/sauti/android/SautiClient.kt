@@ -25,6 +25,7 @@ import io.sauti.engine.JoinConfig
 import io.sauti.engine.OpusConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -141,7 +142,7 @@ class SautiClient internal constructor(
                 slotGeneration = request.slotGeneration
             )
         )
-        scope.launch { observeStateForNotification(request.displayTitle) }
+        notificationJob = scope.launch { observeStateForNotification(request.displayTitle) }
         engine.join(JoinConfig(request.url, request.token, request.endWhenLastPeerLeaves))
     }
 
@@ -181,6 +182,7 @@ class SautiClient internal constructor(
 
     private var left = false
     private var disposed = false
+    private var notificationJob: Job? = null
 
     fun leave() {
         if (left) return
@@ -191,6 +193,8 @@ class SautiClient internal constructor(
     internal fun leaveInternal() {
         if (left) return
         left = true
+        notificationJob?.cancel()
+        notificationJob = null
         runCatching { engine.leave() }
         runCatching { proximity?.stop() }
         runCatching { telephony.stop() }
@@ -204,6 +208,8 @@ class SautiClient internal constructor(
     fun dispose() {
         if (disposed) return
         disposed = true
+        notificationJob?.cancel()
+        notificationJob = null
         runCatching { engine.dispose() }
     }
 }
