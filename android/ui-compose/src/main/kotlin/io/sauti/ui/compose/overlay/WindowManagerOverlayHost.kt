@@ -41,7 +41,7 @@ import io.sauti.android.overlay.snapToNearestEdge
 import io.sauti.ui.compose.SautiCallUiState
 import io.sauti.ui.compose.SautiTheme
 
-private class OverlayViewTreeOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+internal class OverlayViewTreeOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val store = ViewModelStore()
     private val savedStateController = SavedStateRegistryController.create(this)
@@ -69,6 +69,8 @@ class WindowManagerOverlayHost(
     private val config: BubbleConfig = BubbleConfig()
 ) : BubbleOverlayHost {
 
+    internal var ownerFactory: () -> OverlayViewTreeOwner = { OverlayViewTreeOwner() }
+
     private val windowManager: WindowManager
         get() = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -93,7 +95,7 @@ class WindowManagerOverlayHost(
         if (!positioned) {
             position = initialPosition(collapsedBounds(), config.initialEdge)
         }
-        val viewTreeOwner = OverlayViewTreeOwner().apply { attach() }
+        val viewTreeOwner = ownerFactory().apply { attach() }
         val lp = layoutParams()
         val composeView = ComposeView(context).apply {
             setViewTreeLifecycleOwner(viewTreeOwner)
@@ -115,7 +117,10 @@ class WindowManagerOverlayHost(
             }
         }
         attachTouchListener(composeView, lp)
-        if (runCatching { windowManager.addView(composeView, lp) }.isFailure) return
+        if (runCatching { windowManager.addView(composeView, lp) }.isFailure) {
+            runCatching { viewTreeOwner.detach() }
+            return
+        }
         view = composeView
         owner = viewTreeOwner
         params = lp
