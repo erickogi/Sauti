@@ -123,12 +123,16 @@ class WebRtcConnection(
     }
 
     override fun restartIce() {
+        if (closed.get()) return
         connection.restartIce()
     }
 
-    override suspend fun getStats(): StatsSample = suspendCancellableCoroutine { cont ->
-        connection.getStats { report ->
-            cont.resume(StatsExtractor.extract(report))
+    override suspend fun getStats(): StatsSample {
+        if (closed.get()) throw RtcException("connection closed")
+        return suspendCancellableCoroutine { cont ->
+            connection.getStats { report ->
+                cont.resume(StatsExtractor.extract(report))
+            }
         }
     }
 

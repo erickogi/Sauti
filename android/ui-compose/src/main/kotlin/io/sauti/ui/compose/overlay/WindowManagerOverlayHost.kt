@@ -115,7 +115,7 @@ class WindowManagerOverlayHost(
             }
         }
         attachTouchListener(composeView, lp)
-        windowManager.addView(composeView, lp)
+        if (runCatching { windowManager.addView(composeView, lp) }.isFailure) return
         view = composeView
         owner = viewTreeOwner
         params = lp
@@ -125,18 +125,20 @@ class WindowManagerOverlayHost(
 
     override fun hide() {
         val attached = view ?: return
-        configCallbacks?.let { context.unregisterComponentCallbacks(it) }
-        configCallbacks = null
-        windowManager.removeView(attached)
-        owner?.detach()
+        val detachOwner = owner
+        val callbacks = configCallbacks
         view = null
         owner = null
         params = null
         current = null
+        configCallbacks = null
         expansion = BubbleExpansionReducer.onHidden()
         positioned = false
         position = BubblePosition(0, 0)
         dragCollapsed = false
+        callbacks?.let { runCatching { context.unregisterComponentCallbacks(it) } }
+        runCatching { windowManager.removeView(attached) }
+        runCatching { detachOwner?.detach() }
     }
 
     private fun registerConfigCallbacks() {

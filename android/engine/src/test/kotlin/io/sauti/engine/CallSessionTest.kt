@@ -59,6 +59,24 @@ class CallSessionTest {
     }
 
     @Test
+    fun leaveTearsDownToLeftEvenWhenPeerCloseThrows() = runTest {
+        val h = buildHarness(backgroundScope)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.hub.latest.deliver(Frames.ready("A", peers = listOf(Frames.participant("B"))))
+        runCurrent()
+        h.rtc.created.forEach { it.throwOnClose = true }
+
+        h.session.leave()
+        runCurrent()
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        assertEquals(CallPhase.LEFT, h.session.state.value.phase)
+        assertEquals(listOf(1), h.rtc.created.map { it.closeCount })
+    }
+
+    @Test
     fun threeParticipantRoomCreatesTwoPeersOffererByPoliteness() = runTest {
         val h = buildHarness(backgroundScope)
         backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }

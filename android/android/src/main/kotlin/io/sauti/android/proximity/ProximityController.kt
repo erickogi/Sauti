@@ -68,12 +68,15 @@ class ProximityController(
     fun stop() {
         job?.cancel()
         job = null
-        if (registered) {
-            sensorManager.unregisterListener(listener)
-            registered = false
+        try {
+            if (registered) {
+                registered = false
+                runCatching { sensorManager.unregisterListener(listener) }
+            }
+            nearState.value = false
+        } finally {
+            release()
         }
-        nearState.value = false
-        release()
     }
 
     private fun apply(intent: ScreenIntent) {

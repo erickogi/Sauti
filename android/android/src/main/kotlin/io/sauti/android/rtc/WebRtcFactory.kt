@@ -14,6 +14,7 @@ import org.webrtc.MediaConstraints
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.audio.JavaAudioDeviceModule
+import java.util.concurrent.atomic.AtomicBoolean
 import org.webrtc.PeerConnection.IceServer as WebRtcIceServer
 
 internal fun buildAudioConstraints(config: AudioProcessingConfig): MediaConstraints {
@@ -36,6 +37,7 @@ class WebRtcFactory(
     private val factory: PeerConnectionFactory
     private val audioSource: AudioSource
     private val localAudioTrack: AudioTrack
+    private val disposed = AtomicBoolean(false)
 
     init {
         PeerConnectionFactory.initialize(
@@ -80,8 +82,9 @@ class WebRtcFactory(
     }
 
     fun dispose() {
-        localAudioTrack.dispose()
-        audioSource.dispose()
-        factory.dispose()
+        if (!disposed.compareAndSet(false, true)) return
+        runCatching { localAudioTrack.dispose() }
+        runCatching { audioSource.dispose() }
+        runCatching { factory.dispose() }
     }
 }

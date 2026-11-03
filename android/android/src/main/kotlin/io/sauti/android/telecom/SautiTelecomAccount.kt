@@ -22,31 +22,31 @@ class SautiTelecomAccount(context: Context) {
         ACCOUNT_ID
     )
 
-    fun register(label: String) {
+    fun register(label: String): Boolean {
         val account = PhoneAccount.builder(handle, label)
             .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
             .build()
-        telecomManager.registerPhoneAccount(account)
+        return runCatching { telecomManager.registerPhoneAccount(account) }.isSuccess
     }
 
     fun unregister() {
-        telecomManager.unregisterPhoneAccount(handle)
+        runCatching { telecomManager.unregisterPhoneAccount(handle) }
     }
 
     @SuppressLint("MissingPermission")
-    fun place(participantId: String) {
+    fun place(participantId: String): Boolean {
         val extras = Bundle().apply {
             putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
         }
-        telecomManager.placeCall(addressOf(participantId), extras)
+        return runCatching { telecomManager.placeCall(addressOf(participantId), extras) }.isSuccess
     }
 
     @SuppressLint("MissingPermission")
-    fun reportIncoming(participantId: String) {
+    fun reportIncoming(participantId: String): Boolean {
         val extras = Bundle().apply {
             putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, addressOf(participantId))
         }
-        telecomManager.addNewIncomingCall(handle, extras)
+        return runCatching { telecomManager.addNewIncomingCall(handle, extras) }.isSuccess
     }
 
     private fun addressOf(participantId: String): Uri = Uri.fromParts(SCHEME, participantId, null)

@@ -46,11 +46,11 @@ class SautiRinger internal constructor(
         job?.cancel()
         job = null
         lastMode = null
-        ringback.stop()
-        ringtone.stop()
-        vibrator.stop()
-        ringback.release()
-        ringtone.release()
+        runCatching { ringback.stop() }
+        runCatching { ringtone.stop() }
+        runCatching { vibrator.stop() }
+        runCatching { ringback.release() }
+        runCatching { ringtone.release() }
     }
 
     private fun apply(mode: RingMode) {

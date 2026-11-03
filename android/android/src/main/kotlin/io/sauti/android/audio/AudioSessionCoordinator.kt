@@ -71,12 +71,15 @@ class AudioSessionCoordinator(context: Context) : AudioController {
     override fun stop() {
         if (!started) return
         started = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) unregisterDeviceCallback()
-        abandonFocus()
-        stopLegacyBluetooth()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) clearCommunicationDevice()
-        audioManager.mode = AudioManager.MODE_NORMAL
-        interruptedState.value = false
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) runCatching { unregisterDeviceCallback() }
+            runCatching { abandonFocus() }
+            runCatching { stopLegacyBluetooth() }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) runCatching { clearCommunicationDevice() }
+        } finally {
+            runCatching { audioManager.mode = AudioManager.MODE_NORMAL }
+            interruptedState.value = false
+        }
     }
 
     override fun selectDevice(device: AudioDevice) {

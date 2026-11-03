@@ -77,6 +77,7 @@ class FakePeerConnection : PeerConnectionPort {
     var restartIceCalls = 0
     var closed = false
     var closeCount = 0
+    var throwOnClose = false
     var localDescription: SdpDescription? = null
     var remoteDescription: SdpDescription? = null
     val addedCandidates = mutableListOf<IceCandidate>()
@@ -123,6 +124,7 @@ class FakePeerConnection : PeerConnectionPort {
     override fun close() {
         closed = true
         closeCount += 1
+        if (throwOnClose) throw IllegalStateException("native close failed")
     }
 
     fun emitConnected() {

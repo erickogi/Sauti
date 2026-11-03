@@ -42,7 +42,9 @@ class CallForegroundService : Service() {
             else -> {
                 val title = intent.getStringExtra(EXTRA_TITLE)
                 val presence = presenceOf(intent.getStringExtra(EXTRA_PRESENCE))
-                if (!goForeground(title, presence)) stopSelfCompat()
+                if (!goForeground(title, presence)) {
+                    if (owningClient != null) endCall() else stopSelfCompat()
+                }
             }
         }
         return START_NOT_STICKY

@@ -34,6 +34,20 @@ class MeshTeardownTest {
     }
 
     @Test
+    fun teardownClosesEveryPeerEvenWhenOneCloseThrows() {
+        val factory = FakeRtcFactory()
+        val mesh = mesh(factory)
+        mesh.addPeer("peer-b")
+        mesh.addPeer("peer-c")
+        factory.created.forEach { it.throwOnClose = true }
+
+        mesh.teardown()
+
+        assertEquals(listOf(1, 1), factory.created.map { it.closeCount })
+        assertEquals(0, mesh.count())
+    }
+
+    @Test
     fun teardownIsIdempotent() {
         val factory = FakeRtcFactory()
         val mesh = mesh(factory)

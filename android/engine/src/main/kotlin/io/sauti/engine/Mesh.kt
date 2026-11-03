@@ -17,6 +17,7 @@ class Mesh(
 ) {
     private val lock = Any()
     private val peers = LinkedHashMap<String, Peer>()
+    private val left = HashSet<String>()
     private var iceServers: List<IceServer> = emptyList()
 
     private val signal = object : PeerSignal {
@@ -37,18 +38,28 @@ class Mesh(
 
     fun count(): Int = synchronized(lock) { peers.size }
 
-    fun ensurePeer(peerId: String): Peer {
-        synchronized(lock) { peers[peerId]?.let { return it } }
+    fun ensurePeer(peerId: String): Peer? {
+        synchronized(lock) {
+            peers[peerId]?.let { return it }
+            if (left.contains(peerId)) return null
+        }
         val fresh = createDetached(peerId)
         var loser: Peer? = null
         val result = synchronized(lock) {
             val existing = peers[peerId]
-            if (existing != null) {
-                loser = fresh
-                existing
-            } else {
-                peers[peerId] = fresh
-                fresh
+            when {
+                existing != null -> {
+                    loser = fresh
+                    existing
+                }
+                left.contains(peerId) -> {
+                    loser = fresh
+                    null
+                }
+                else -> {
+                    peers[peerId] = fresh
+                    fresh
+                }
             }
         }
         loser?.close()
@@ -60,6 +71,7 @@ class Mesh(
         var loser: Peer? = null
         var created = false
         val result = synchronized(lock) {
+            left.remove(peerId)
             val existing = peers[peerId]
             if (existing != null) {
                 loser = fresh
@@ -102,12 +114,15 @@ class Mesh(
     }
 
     fun removePeer(peerId: String) {
-        val peer = synchronized(lock) { peers.remove(peerId) } ?: return
+        val peer = synchronized(lock) {
+            left.add(peerId)
+            peers.remove(peerId)
+        } ?: return
         peer.close()
     }
 
     suspend fun routeOffer(from: String, sdp: String) {
-        ensurePeer(from).onOffer(sdp)
+        ensurePeer(from)?.onOffer(sdp)
     }
 
     suspend fun routeAnswer(from: String, sdp: String) {
@@ -131,6 +146,7 @@ class Mesh(
         val snapshot = synchronized(lock) {
             val all = peers.values.toList()
             peers.clear()
+            left.clear()
             all
         }
         for (peer in snapshot) runCatching { peer.close() }
