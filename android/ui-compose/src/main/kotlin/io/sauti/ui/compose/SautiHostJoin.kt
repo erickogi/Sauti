@@ -21,7 +21,7 @@ internal object SautiHostJoin {
         val client = SautiClient(
             context = appContext,
             engineConfig = EngineConfig(
-                sendQoe = defaults.sendQoe,
+                sendQoe = defaults.sendQoe(),
                 qoeIntervalMs = defaults.qoeIntervalMs,
                 onQoe = defaults.onQoe
             ),
