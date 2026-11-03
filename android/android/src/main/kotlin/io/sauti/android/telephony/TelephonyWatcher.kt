@@ -34,14 +34,16 @@ class TelephonyWatcher(
 
     override fun stop() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (modernCallback as? TelephonyCallback)?.let { telephonyManager.unregisterTelephonyCallback(it) }
+            val callback = modernCallback as? TelephonyCallback
             modernCallback = null
+            callback?.let { runCatching { telephonyManager.unregisterTelephonyCallback(it) } }
         } else {
-            legacyListener?.let {
-                @Suppress("DEPRECATION")
-                telephonyManager.listen(it, PhoneStateListener.LISTEN_NONE)
-            }
+            val listener = legacyListener
             legacyListener = null
+            listener?.let {
+                @Suppress("DEPRECATION")
+                runCatching { telephonyManager.listen(it, PhoneStateListener.LISTEN_NONE) }
+            }
         }
     }
 
@@ -53,8 +55,9 @@ class TelephonyWatcher(
                 dispatch(state)
             }
         }
-        modernCallback = callback
-        telephonyManager.registerTelephonyCallback(executor, callback)
+        if (runCatching { telephonyManager.registerTelephonyCallback(executor, callback) }.isSuccess) {
+            modernCallback = callback
+        }
     }
 
     private fun startLegacy() {
@@ -65,9 +68,11 @@ class TelephonyWatcher(
                 dispatch(state)
             }
         }
-        legacyListener = listener
-        @Suppress("DEPRECATION")
-        telephonyManager.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+        val registered = runCatching {
+            @Suppress("DEPRECATION")
+            telephonyManager.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+        }.isSuccess
+        if (registered) legacyListener = listener
     }
 
     private fun dispatch(state: Int) {

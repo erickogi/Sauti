@@ -27,8 +27,9 @@ class ConnectivityWatcher(
     }
 
     override fun stop() {
-        modernCallback?.let { connectivityManager.unregisterNetworkCallback(it) }
+        val callback = modernCallback ?: return
         modernCallback = null
+        runCatching { connectivityManager.unregisterNetworkCallback(callback) }
     }
 
     private fun startModern() {
@@ -45,8 +46,9 @@ class ConnectivityWatcher(
                 onNetworkChanged(NetworkEventKind.Lost)
             }
         }
-        modernCallback = callback
-        connectivityManager.registerNetworkCallback(request, callback)
+        if (runCatching { connectivityManager.registerNetworkCallback(request, callback) }.isSuccess) {
+            modernCallback = callback
+        }
     }
 
     private fun startLegacy() {
@@ -59,10 +61,9 @@ class ConnectivityWatcher(
                 onNetworkChanged(NetworkEventKind.Lost)
             }
         }
-        modernCallback = callback
-        connectivityManager.registerNetworkCallback(
-            NetworkRequest.Builder().build(),
-            callback
-        )
+        val registered = runCatching {
+            connectivityManager.registerNetworkCallback(NetworkRequest.Builder().build(), callback)
+        }.isSuccess
+        if (registered) modernCallback = callback
     }
 }
