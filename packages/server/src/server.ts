@@ -631,6 +631,11 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
 
   function handleQoe(conn: Conn, frame: Record<string, unknown>): void {
     if (conn.left) return;
+    const now = Date.now();
+    if (conn.lastQoeAt !== undefined && now - conn.lastQoeAt < QOE_MIN_INTERVAL_MS) {
+      return;
+    }
+    conn.lastQoeAt = now;
     const parsed = qoeFrameSchema.safeParse(frame);
     if (!parsed.success) {
       emit('relay.frame_dropped', conn.roomId, conn.participantId, {
@@ -638,14 +643,6 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
       });
       return;
     }
-    const now = Date.now();
-    if (conn.lastQoeAt !== undefined && now - conn.lastQoeAt < QOE_MIN_INTERVAL_MS) {
-      emit('relay.frame_dropped', conn.roomId, conn.participantId, {
-        reason: 'qoe_rate_limited'
-      });
-      return;
-    }
-    conn.lastQoeAt = now;
     const q = parsed.data;
     emit('qoe', conn.roomId, conn.participantId, {
       samples: q.samples,

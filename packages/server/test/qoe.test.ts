@@ -60,7 +60,7 @@ describe('qoe frame handling', () => {
     a.close();
   });
 
-  it('rate-limits qoe to one accepted frame per window', async () => {
+  it('rate-limits qoe to one accepted frame per window and drops the rest silently', async () => {
     const deps = makeDeps();
     running = await startServer(deps);
     const a = new TestClient(running.url);
@@ -71,11 +71,26 @@ describe('qoe frame handling', () => {
     await delay(50);
 
     expect(deps.events.filter((e) => e.type === 'qoe')).toHaveLength(1);
+    expect(deps.events.some((e) => e.type === 'relay.frame_dropped')).toBe(false);
+    a.close();
+  });
+
+  it('bounds an invalid-qoe flood to one drop event per window', async () => {
+    const deps = makeDeps();
+    running = await startServer(deps);
+    const a = new TestClient(running.url);
+    await a.join(tokenFor('room1', 'A'));
+
+    const bad = { v: 1, type: 'qoe', samples: 0 };
+    for (let i = 0; i < 20; i++) a.send(bad);
+    await delay(50);
+
     expect(
-      deps.events.some(
-        (e) => e.type === 'relay.frame_dropped' && e.data?.reason === 'qoe_rate_limited'
+      deps.events.filter(
+        (e) => e.type === 'relay.frame_dropped' && e.data?.reason === 'qoe_invalid'
       )
-    ).toBe(true);
+    ).toHaveLength(1);
+    expect(deps.events.some((e) => e.type === 'qoe')).toBe(false);
     a.close();
   });
 });

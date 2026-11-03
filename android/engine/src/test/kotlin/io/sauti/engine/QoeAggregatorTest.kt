@@ -1,8 +1,12 @@
 package io.sauti.engine
 
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class QoeAggregatorTest {
 
@@ -28,6 +32,32 @@ class QoeAggregatorTest {
     @Test
     fun emptyAggregatorHasNoSummary() {
         assertNull(QoeAggregator(2.0).summary())
+    }
+
+    @Test
+    fun concurrentObserveAndSummaryLoseNoUpdatesAndThrowNothing() {
+        val agg = QoeAggregator(2.0)
+        val failures = CopyOnWriteArrayList<Throwable>()
+        val rounds = 5_000
+        val barrier = CyclicBarrier(3)
+
+        val writers = (0 until 2).map {
+            thread {
+                barrier.await()
+                runCatching { repeat(rounds) { agg.observe(Quality.DEGRADED, 100.0, 0.01, 10.0) } }
+                    .onFailure { failures += it }
+            }
+        }
+        val reader = thread {
+            barrier.await()
+            runCatching { repeat(rounds) { agg.summary() } }.onFailure { failures += it }
+        }
+
+        writers.forEach { it.join() }
+        reader.join()
+
+        assertTrue(failures.isEmpty(), "concurrent aggregator access threw: $failures")
+        assertEquals(2 * rounds, agg.summary()!!.samples)
     }
 
     @Test

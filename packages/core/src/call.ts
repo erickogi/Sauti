@@ -490,6 +490,7 @@ export class Call implements SautiCall {
   private async pollQuality(): Promise<void> {
     if (!this.mesh) return;
     let anyFallback = false;
+    let fedQoe = false;
     for (const peerId of this.mesh.ids()) {
       const peer = this.mesh.statsPeer(peerId);
       if (!peer) continue;
@@ -524,15 +525,18 @@ export class Call implements SautiCall {
           sampledAt: this.runtime.now()
         });
       }
-      try {
-        this.qoeAggregator?.observe(
-          result.label,
-          sample.rttMs,
-          sample.fractionLost ?? 0,
-          sample.jitterMs
-        );
-      } catch {
-        void 0;
+      if (!fedQoe) {
+        fedQoe = true;
+        try {
+          this.qoeAggregator?.observe(
+            result.label,
+            sample.rttMs,
+            sample.fractionLost ?? 0,
+            sample.jitterMs
+          );
+        } catch {
+          void 0;
+        }
       }
       if (result.fallback) anyFallback = true;
     }

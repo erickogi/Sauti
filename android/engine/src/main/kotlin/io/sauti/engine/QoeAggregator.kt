@@ -28,6 +28,7 @@ class QoeAggregator(private val intervalSec: Double) {
     private var secPoor = 0.0
     private var worst = Quality.GOOD
 
+    @Synchronized
     fun observe(band: Quality, rttMs: Double, fractionLost: Double, jitterMs: Double) {
         samples += 1
         if (rttMs.isFinite() && rttMs > 0.0) {
@@ -50,8 +51,10 @@ class QoeAggregator(private val intervalSec: Double) {
         if (band.ordinal > worst.ordinal) worst = band
     }
 
+    @Synchronized
     fun hasSamples(): Boolean = samples > 0
 
+    @Synchronized
     fun summary(): QoeSummary? {
         if (samples == 0) return null
         return QoeSummary(

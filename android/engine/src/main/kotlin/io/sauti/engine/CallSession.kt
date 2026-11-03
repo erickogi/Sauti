@@ -346,22 +346,27 @@ class CallSession(
 
     private fun startQoe() {
         if (!config.sendQoe || qoeJob != null) return
-        if (qoeAggregator == null) qoeAggregator = QoeAggregator(config.statsIntervalMs / 1000.0)
-        qoeJob = scope.launch {
-            while (true) {
-                delay(config.qoeIntervalMs)
-                flushQoe()
+        runCatching {
+            if (qoeAggregator == null) qoeAggregator = QoeAggregator(config.statsIntervalMs / 1000.0)
+            qoeJob = scope.launch {
+                while (true) {
+                    delay(config.qoeIntervalMs)
+                    flushQoe()
+                }
             }
         }
     }
 
     private fun flushQoe() {
-        val summary = qoeAggregator?.summary() ?: return
-        runCatching { signaling?.send(FrameCodec.encodeQoe(summary)) }
+        runCatching {
+            val summary = qoeAggregator?.summary() ?: return
+            signaling?.send(FrameCodec.encodeQoe(summary))
+        }
     }
 
     suspend fun pollQuality() {
         val currentMesh = mesh ?: return
+        var fedQoe = false
         for (peerId in currentMesh.ids()) {
             val peer = currentMesh.statsPeer(peerId) ?: continue
             val sample = try {
@@ -388,13 +393,16 @@ class CallSession(
                     config.now()
                 )
             )
-            runCatching {
-                qoeAggregator?.observe(
-                    result.label,
-                    sample.rttMs,
-                    sample.fractionLost ?: 0.0,
-                    sample.jitterMs
-                )
+            if (!fedQoe) {
+                fedQoe = true
+                runCatching {
+                    qoeAggregator?.observe(
+                        result.label,
+                        sample.rttMs,
+                        sample.fractionLost ?: 0.0,
+                        sample.jitterMs
+                    )
+                }
             }
         }
     }
