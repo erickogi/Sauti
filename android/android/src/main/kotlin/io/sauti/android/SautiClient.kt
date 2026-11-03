@@ -191,12 +191,12 @@ class SautiClient internal constructor(
     internal fun leaveInternal() {
         if (left) return
         left = true
-        engine.leave()
-        proximity?.stop()
-        telephony.stop()
-        connectivity.stop()
-        audio.stop()
-        scope.launch { resumeStore.clear() }
+        runCatching { engine.leave() }
+        runCatching { proximity?.stop() }
+        runCatching { telephony.stop() }
+        runCatching { connectivity.stop() }
+        runCatching { audio.stop() }
+        runCatching { scope.launch { resumeStore.clear() } }
     }
 
     suspend fun pendingResume(): ResumeRecord? = resumeStore.load()
@@ -204,6 +204,6 @@ class SautiClient internal constructor(
     fun dispose() {
         if (disposed) return
         disposed = true
-        engine.dispose()
+        runCatching { engine.dispose() }
     }
 }

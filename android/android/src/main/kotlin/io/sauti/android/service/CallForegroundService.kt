@@ -96,9 +96,15 @@ class CallForegroundService : Service() {
         currentCall.value = null
         serviceScope?.cancel()
         serviceScope = null
-        client.leaveInternal()
-        client.dispose()
-        stopSelfCompat()
+        try {
+            client.leaveInternal()
+        } finally {
+            try {
+                client.dispose()
+            } finally {
+                stopSelfCompat()
+            }
+        }
     }
 
     private fun endAdopted() {
