@@ -99,6 +99,20 @@ describe('coverage completions', () => {
     }
   });
 
+  it('ignores a ready delivered after leave so the call is not resurrected', async () => {
+    const conn = await connect(readyFrame({ selfId: 'A', peers: [participant('B')] }));
+    await flush();
+    const pcsBefore = conn.h.pcs.length;
+
+    conn.call.leave();
+    await flush();
+    conn.socket.deliver(readyFrame({ selfId: 'A', peers: [participant('C')] }));
+    await flush();
+
+    expect(conn.call.getSnapshot().phase).toBe('left');
+    expect(conn.h.pcs).toHaveLength(pcsBefore);
+  });
+
   it('tolerates session descriptions without an sdp string', async () => {
     const h = makeRuntime({
       createPeerConnection: (config) => {

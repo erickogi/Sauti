@@ -257,6 +257,7 @@ class CallSession(
         if (frame.resumed) emit(CallEvent.Reconnected)
         finishJoin()
         maybeEndForLastPeer()
+        if (!active) teardown()
     }
 
     private fun reconcile(frame: ServerFrame.Ready, currentMesh: Mesh) {

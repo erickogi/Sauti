@@ -365,6 +365,7 @@ export class Call implements SautiCall {
     if (frame.resumed) this.emitter.emit('reconnected', {});
     this.finishJoin();
     this.maybeEndForLastPeer();
+    if (!this.active) this.teardown();
   }
 
   private reconcile(frame: ReadyFrame): void {
