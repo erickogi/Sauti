@@ -28,11 +28,15 @@ object SautiIncomingCallRegistry {
 
     fun register(callId: String, finisher: Finisher) {
         if (callId.isBlank()) return
-        if (isCancelled(callId)) {
-            finisher.finish()
-            return
+        val cancelledAlready = synchronized(cancelled) {
+            if (cancelled.contains(callId)) {
+                true
+            } else {
+                finishers[callId] = finisher
+                false
+            }
         }
-        finishers[callId] = finisher
+        if (cancelledAlready) finisher.finish()
     }
 
     fun unregister(callId: String, finisher: Finisher) {
@@ -41,16 +45,17 @@ object SautiIncomingCallRegistry {
 
     fun cancel(callId: String) {
         if (callId.isBlank()) return
-        markCancelled(callId)
-        finishers.remove(callId)?.finish()
+        val pending = synchronized(cancelled) {
+            markCancelledLocked(callId)
+            finishers.remove(callId)
+        }
+        pending?.finish()
     }
 
-    private fun markCancelled(callId: String) {
-        synchronized(cancelled) {
-            cancelled.add(callId)
-            while (cancelled.size > MAX_CANCELLED) {
-                cancelled.remove(cancelled.iterator().next())
-            }
+    private fun markCancelledLocked(callId: String) {
+        cancelled.add(callId)
+        while (cancelled.size > MAX_CANCELLED) {
+            cancelled.remove(cancelled.iterator().next())
         }
     }
 
