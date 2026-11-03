@@ -17,6 +17,7 @@ export interface MeshHooks {
 
 export class Mesh {
   private readonly peers = new Map<string, Peer>();
+  private readonly left = new Set<string>();
   private iceServers: IceServerConfig[] = [];
   private local: { stream: StreamLike; track: TrackLike } | null = null;
 
@@ -54,10 +55,15 @@ export class Mesh {
     return [...this.peers.keys()];
   }
 
-  ensurePeer(peerId: string): Peer {
+  ensurePeer(peerId: string): Peer | null {
     const existing = this.peers.get(peerId);
     if (existing) return existing;
+    if (this.left.has(peerId)) return null;
     return this.createPeer(peerId);
+  }
+
+  statsPeer(peerId: string): Peer | null {
+    return this.peers.get(peerId) ?? null;
   }
 
   private createPeer(peerId: string): Peer {
@@ -79,6 +85,7 @@ export class Mesh {
   }
 
   addPeer(peerId: string): Peer {
+    this.left.delete(peerId);
     const peer = this.createPeer(peerId);
     peer.start();
     return peer;
@@ -94,6 +101,7 @@ export class Mesh {
   }
 
   removePeer(peerId: string): void {
+    this.left.add(peerId);
     const peer = this.peers.get(peerId);
     if (!peer) return;
     peer.close();
@@ -103,7 +111,7 @@ export class Mesh {
 
   async routeOffer(from: string, sdp: string): Promise<void> {
     const peer = this.ensurePeer(from);
-    await peer.onOffer(sdp);
+    if (peer) await peer.onOffer(sdp);
   }
 
   async routeAnswer(from: string, sdp: string): Promise<void> {
@@ -126,8 +134,15 @@ export class Mesh {
   }
 
   teardown(): void {
-    for (const peer of this.peers.values()) peer.close();
+    for (const peer of this.peers.values()) {
+      try {
+        peer.close();
+      } catch {
+        void 0;
+      }
+    }
     this.peers.clear();
+    this.left.clear();
     this.sinks.clear();
   }
 }

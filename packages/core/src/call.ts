@@ -453,7 +453,8 @@ export class Call implements SautiCall {
     if (!this.mesh) return;
     let anyFallback = false;
     for (const peerId of this.mesh.ids()) {
-      const peer = this.mesh.ensurePeer(peerId);
+      const peer = this.mesh.statsPeer(peerId);
+      if (!peer) continue;
       let sample;
       try {
         sample = await peer.pc.getStats();
@@ -547,11 +548,6 @@ export class Call implements SautiCall {
   }
 
   private teardown(): void {
-    this.mesh?.teardown();
-    this.mesh = null;
-    for (const track of this.localStream?.getTracks() ?? []) track.stop();
-    this.localStream = null;
-    this.localTrack = null;
     if (this.durationTimer) {
       clearInterval(this.durationTimer);
       this.durationTimer = null;
@@ -560,6 +556,21 @@ export class Call implements SautiCall {
       clearInterval(this.qualityTimer);
       this.qualityTimer = null;
     }
+    try {
+      this.mesh?.teardown();
+    } catch {
+      void 0;
+    }
+    this.mesh = null;
+    for (const track of this.localStream?.getTracks() ?? []) {
+      try {
+        track.stop();
+      } catch {
+        void 0;
+      }
+    }
+    this.localStream = null;
+    this.localTrack = null;
     this.trackers.clear();
     this.unregisterListeners();
     this.signaling = null;

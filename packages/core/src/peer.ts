@@ -24,6 +24,7 @@ export class Peer {
   private makingOffer = false;
   private ignoreOffer = false;
   private restartAttempted = false;
+  private closed = false;
   private localTrack: TrackLike;
 
   constructor(
@@ -156,6 +157,8 @@ export class Peer {
   }
 
   close(): void {
+    if (this.closed) return;
+    this.closed = true;
     this.pc.onicecandidate = null;
     this.pc.ontrack = null;
     this.pc.onnegotiationneeded = null;

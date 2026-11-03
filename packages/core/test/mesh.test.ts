@@ -48,6 +48,28 @@ describe('mesh', () => {
     expect(conn.h.sinks[1]!.playCount).toBeGreaterThan(0);
   });
 
+  it('does not resurrect a peer that already left when a late offer arrives [MESH-05]', async () => {
+    const conn = await connect(readyFrame({ selfId: 'A' }));
+    conn.socket.deliver({ v: 1, type: 'participant-joined', participant: participant('B') });
+    await flush();
+    conn.socket.deliver({ v: 1, type: 'participant-left', participantId: 'B' });
+    await flush();
+    const pcsAfterLeave = conn.h.pcs.length;
+
+    conn.socket.deliver({ v: 1, type: 'offer', from: 'B', sdp: 'late-offer' });
+    await flush();
+
+    expect(conn.h.pcs.length).toBe(pcsAfterLeave);
+    expect(livePcs(conn.h.pcs)).toBe(0);
+  });
+
+  it('still creates a peer for an offer that arrives before the join [MESH-06]', async () => {
+    const conn = await connect(readyFrame({ selfId: 'A' }));
+    conn.socket.deliver({ v: 1, type: 'offer', from: 'Z', sdp: 'early-offer' });
+    await flush();
+    expect(livePcs(conn.h.pcs)).toBe(1);
+  });
+
   it('join fast-fails with a client-side RoomFull error [MESH-04]', async () => {
     const { h, call } = makeCall();
     const errors: string[] = [];
