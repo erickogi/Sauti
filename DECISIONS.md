@@ -344,3 +344,32 @@ registry prevents. A Robolectric test now pins that `handlePush` inherits that r
 derivation would invent wrong, potentially low-contrast tones on the call screen, and `material3` is an
 `implementation` dependency so the signature would leak an ABI type — it needs a design/accessibility decision on
 which colors stay library-locked plus an `api` promotion, not a silent DX helper.
+
+## The tombstone relies on server join-before-offer ordering, proven only for single-pod
+
+A peer id is tombstoned in `Mesh.left` when the client receives `participant-left`, and while
+tombstoned an inbound offer for that peer is dropped (`ensurePeer` returns null) so a stray late
+offer cannot resurrect a departed peer. A genuine rejoin must therefore clear the tombstone before
+its offer arrives. The clear happens only on `participant-joined` (`addPeer` removes the id from
+`left`). We keep that and do not clear the tombstone on an inbound offer, because clearing on offer
+would let a stale offer resurrect a peer and would break
+`offerAfterParticipantLeftDoesNotResurrectThePeer`.
+
+The safety of this rests on the server delivering `participant-joined` for a rejoin before relaying
+that peer's first offer. Every tombstone path removes the slot before broadcasting `participant-left`
+(`handleLeave`, `runSweep`, `closeRoom`), so the peer's return is always a fresh join, and
+`freshJoin` broadcasts `participant-joined` before `sendReady` returns, ahead of any offer the
+rejoiner can send. `tombstoneOrdering.test.ts` proves this for the explicit-leave and grace-sweep
+paths on a single server instance.
+
+Two gaps are known and left as follow-ups rather than widened here:
+
+- The Android `CallSession.onParticipantJoined` capacity guard (`count >= maxParticipants - 1`) can
+  return before `addPeer`, so a rejoin processed while the leaver's slot is still counted would not
+  clear the tombstone and would strand audio. The TypeScript client has no such guard. Reconciling
+  the two, by dropping the client guard the server already enforces through CLAIM_SLOT or by making
+  it tombstone-aware, is a separate change.
+- Across pods, `participant-left` and a rejoin's `participant-joined` are published by different
+  publishers, so Redis does not guarantee their relative order. A generation or epoch carried on the
+  presence frames, where the rejoin already mints a fresh slot generation, is the robust fix and is
+  not attempted here.
