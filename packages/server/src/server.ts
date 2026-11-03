@@ -6,6 +6,7 @@ import {
   joinFrameSchema,
   clientStateFrameSchema,
   iceCandidateSchema,
+  qoeFrameSchema,
   PROTOCOL_VERSION,
   type Participant
 } from '@sauti/protocol';
@@ -26,7 +27,10 @@ interface Conn {
   roomId: string;
   participantId: string;
   generation: string;
+  lastQoeAt?: number;
 }
+
+const QOE_MIN_INTERVAL_MS = 5000;
 
 type Envelope =
   | { kind: 'relay'; target: string; frame: unknown }
@@ -614,12 +618,48 @@ export function createSautiServer(deps: CreateServerDeps): SautiServer {
       case 'leave':
         await handleLeave(conn);
         return;
+      case 'qoe':
+        handleQoe(conn, frame);
+        return;
       default:
         emit('relay.frame_dropped', conn.roomId, conn.participantId, {
           reason: 'unknown_type'
         });
         return;
     }
+  }
+
+  function handleQoe(conn: Conn, frame: Record<string, unknown>): void {
+    if (conn.left) return;
+    const parsed = qoeFrameSchema.safeParse(frame);
+    if (!parsed.success) {
+      emit('relay.frame_dropped', conn.roomId, conn.participantId, {
+        reason: 'qoe_invalid'
+      });
+      return;
+    }
+    const now = Date.now();
+    if (conn.lastQoeAt !== undefined && now - conn.lastQoeAt < QOE_MIN_INTERVAL_MS) {
+      emit('relay.frame_dropped', conn.roomId, conn.participantId, {
+        reason: 'qoe_rate_limited'
+      });
+      return;
+    }
+    conn.lastQoeAt = now;
+    const q = parsed.data;
+    emit('qoe', conn.roomId, conn.participantId, {
+      samples: q.samples,
+      avgRttMs: q.avgRttMs,
+      maxRttMs: q.maxRttMs,
+      avgJitterMs: q.avgJitterMs,
+      maxJitterMs: q.maxJitterMs,
+      avgLoss: q.avgLoss,
+      maxLoss: q.maxLoss,
+      secGood: q.secGood,
+      secDegraded: q.secDegraded,
+      secPoor: q.secPoor,
+      worst: q.worst
+    });
   }
 
   function onConnection(ws: WebSocket): void {
