@@ -38,6 +38,8 @@ data class SautiSessionDefaults(
         highpassFilter = true
     ),
     val iceRestartDebounceMs: Long = 2_000L,
+    val sendQoe: Boolean = false,
+    val qoeIntervalMs: Long = 10_000L,
     val onQoe: (QoeSample) -> Unit = {}
 )
 

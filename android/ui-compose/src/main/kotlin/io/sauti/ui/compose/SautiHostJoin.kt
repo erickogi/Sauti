@@ -20,7 +20,11 @@ internal object SautiHostJoin {
         val appContext = context.applicationContext
         val client = SautiClient(
             context = appContext,
-            engineConfig = EngineConfig(onQoe = defaults.onQoe),
+            engineConfig = EngineConfig(
+                sendQoe = defaults.sendQoe,
+                qoeIntervalMs = defaults.qoeIntervalMs,
+                onQoe = defaults.onQoe
+            ),
             connectivityPolicy = ConnectivityPolicy(debounceMs = defaults.iceRestartDebounceMs),
             enableTelephonyAutoMute = enableTelephonyAutoMute,
             enableProximity = defaults.enableProximity,
