@@ -24,6 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 private class ReconnectingEngine : CallEngine {
@@ -32,11 +33,15 @@ private class ReconnectingEngine : CallEngine {
     override val state: StateFlow<CallState> get() = stateFlow.asStateFlow()
     override val events: SharedFlow<CallEvent> get() = eventsFlow.asSharedFlow()
 
+    var joinCount = 0
+
     fun setReconnecting(value: Boolean) {
         stateFlow.value = stateFlow.value.copy(reconnecting = value)
     }
 
-    override suspend fun join(config: JoinConfig) = Unit
+    override suspend fun join(config: JoinConfig) {
+        joinCount += 1
+    }
     override fun setMuted(muted: Boolean) = Unit
     override fun setHold(onHold: Boolean) = Unit
     override fun onNetworkChanged() = Unit
@@ -103,6 +108,21 @@ class SautiClientNotificationCancelTest {
         engine.setReconnecting(true)
 
         assertNull(shadowOf(app).peekNextStartedService())
+    }
+
+    @Test
+    fun joinAfterLeaveStartsNoCollectorAndDoesNotJoinTheEngine() = runBlocking {
+        val engine = ReconnectingEngine()
+        val client = build(engine)
+        client.leave()
+        drainStartedServices()
+
+        client.join(joinRequest)
+        drainStartedServices()
+        engine.setReconnecting(true)
+
+        assertNull(shadowOf(app).peekNextStartedService())
+        assertEquals(0, engine.joinCount)
     }
 
     @Test

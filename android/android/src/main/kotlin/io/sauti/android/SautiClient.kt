@@ -127,6 +127,7 @@ class SautiClient internal constructor(
     )
 
     suspend fun join(request: SautiJoinRequest) {
+        if (left || disposed) return
         selfParticipantId = request.participantId
         CallForegroundService.start(appContext, request.displayTitle, CallPresence.CONNECTING)
         audio.start()
@@ -142,7 +143,14 @@ class SautiClient internal constructor(
                 slotGeneration = request.slotGeneration
             )
         )
-        notificationJob = scope.launch { observeStateForNotification(request.displayTitle) }
+        if (left || disposed) return
+        notificationJob?.cancel()
+        val job = scope.launch { observeStateForNotification(request.displayTitle) }
+        notificationJob = job
+        if (left || disposed) {
+            job.cancel()
+            return
+        }
         engine.join(JoinConfig(request.url, request.token, request.endWhenLastPeerLeaves))
     }
 
