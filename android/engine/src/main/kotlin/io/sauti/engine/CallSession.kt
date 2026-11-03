@@ -69,8 +69,13 @@ class CallSession(
     private var endWhenLastPeerLeaves = false
     private var hadRemotePeer = false
 
+    @Volatile
     private var durationJob: Job? = null
+
+    @Volatile
     private var qualityJob: Job? = null
+
+    @Volatile
     private var joinDeferred: CompletableDeferred<Unit>? = null
 
     suspend fun join(config: JoinConfig) {
@@ -123,9 +128,12 @@ class CallSession(
 
     fun leave() {
         if (!active) return
-        signaling?.send(FrameCodec.encodeLeave())
-        signaling?.close()
-        teardown()
+        try {
+            signaling?.send(FrameCodec.encodeLeave())
+            signaling?.close()
+        } finally {
+            teardown()
+        }
     }
 
     private fun applyLocalAudio() {
@@ -148,6 +156,7 @@ class CallSession(
     }
 
     private fun handleFrame(frame: ServerFrame) {
+        if (!active) return
         when (frame) {
             is ServerFrame.Ready -> onReady(frame)
             is ServerFrame.ParticipantJoined -> onParticipantJoined(frame.participant)
@@ -370,10 +379,16 @@ class CallSession(
 
     private fun failJoin(error: SautiException) {
         surface(error)
-        signaling?.close()
-        teardown()
-        joinDeferred?.completeExceptionally(error)
-        joinDeferred = null
+        try {
+            try {
+                signaling?.close()
+            } finally {
+                teardown()
+            }
+        } finally {
+            joinDeferred?.completeExceptionally(error)
+            joinDeferred = null
+        }
     }
 
     private fun finishJoin() {

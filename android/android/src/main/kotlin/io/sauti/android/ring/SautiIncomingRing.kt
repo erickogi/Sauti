@@ -25,9 +25,9 @@ class SautiIncomingRing internal constructor(
     fun stop() {
         if (!started) return
         started = false
-        ringtone.stop()
-        vibrator.stop()
-        ringtone.release()
+        runCatching { ringtone.stop() }
+        runCatching { vibrator.stop() }
+        runCatching { ringtone.release() }
     }
 
     companion object {

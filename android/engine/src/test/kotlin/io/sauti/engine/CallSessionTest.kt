@@ -59,6 +59,25 @@ class CallSessionTest {
     }
 
     @Test
+    fun readyAfterLeaveDoesNotResurrectTheCall() = runTest {
+        val h = buildHarness(backgroundScope)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.hub.latest.deliver(Frames.ready("A", peers = listOf(Frames.participant("B"))))
+        runCurrent()
+        assertEquals(CallPhase.CONNECTED, h.session.state.value.phase)
+        val pcsBefore = h.rtc.created.size
+
+        h.session.leave()
+        runCurrent()
+        h.hub.latest.deliver(Frames.ready("A", peers = listOf(Frames.participant("C"))))
+        runCurrent()
+
+        assertEquals(CallPhase.LEFT, h.session.state.value.phase)
+        assertEquals(pcsBefore, h.rtc.created.size)
+    }
+
+    @Test
     fun leaveTearsDownToLeftEvenWhenPeerCloseThrows() = runTest {
         val h = buildHarness(backgroundScope)
         backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }

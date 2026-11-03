@@ -252,6 +252,7 @@ export class Call implements SautiCall {
   }
 
   private onFrame(frame: ServerFrame): void {
+    if (!this.active) return;
     switch (frame.type) {
       case 'ready':
         this.onReady(frame);
@@ -432,9 +433,15 @@ export class Call implements SautiCall {
   }
 
   private failJoin(error: SautiError): void {
-    this.signaling?.close();
-    this.teardown();
-    this.finishJoin(error);
+    try {
+      try {
+        this.signaling?.close();
+      } finally {
+        this.teardown();
+      }
+    } finally {
+      this.finishJoin(error);
+    }
   }
 
   private startDuration(): void {
@@ -542,9 +549,12 @@ export class Call implements SautiCall {
 
   leave(): void {
     if (!this.active) return;
-    this.signaling?.send({ v: PROTOCOL_VERSION, type: 'leave' });
-    this.signaling?.close();
-    this.teardown();
+    try {
+      this.signaling?.send({ v: PROTOCOL_VERSION, type: 'leave' });
+      this.signaling?.close();
+    } finally {
+      this.teardown();
+    }
   }
 
   private teardown(): void {
