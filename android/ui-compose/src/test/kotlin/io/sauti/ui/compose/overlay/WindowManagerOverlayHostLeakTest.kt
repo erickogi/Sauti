@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
 import androidx.test.core.app.ApplicationProvider
 import io.sauti.android.audio.AudioDevice
 import io.sauti.engine.CallPhase
@@ -18,6 +19,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+private class TrackingViewModel : ViewModel() {
+    var cleared = false
+    override fun onCleared() {
+        cleared = true
+    }
+}
 
 private class LeakNoopController : SautiCallController {
     override fun setMuted(muted: Boolean) {}
@@ -57,11 +66,18 @@ class WindowManagerOverlayHostLeakTest {
         val context = ThrowingWmContext(base, ThrowingWindowManager(realWm))
 
         var captured: OverlayViewTreeOwner? = null
+        val viewModel = TrackingViewModel()
         val host = WindowManagerOverlayHost(context = context, onReturn = {})
-        host.ownerFactory = { OverlayViewTreeOwner().also { captured = it } }
+        host.ownerFactory = {
+            OverlayViewTreeOwner().also {
+                captured = it
+                it.viewModelStore.put("leak", viewModel)
+            }
+        }
 
         host.show(uiState())
 
         assertEquals(Lifecycle.State.DESTROYED, captured!!.lifecycle.currentState)
+        assertTrue(viewModel.cleared, "the overlay owner's ViewModelStore must be cleared on add failure")
     }
 }
