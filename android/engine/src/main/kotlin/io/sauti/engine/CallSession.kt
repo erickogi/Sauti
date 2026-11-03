@@ -23,6 +23,8 @@ data class EngineConfig(
     val reconnectBaseMs: Long = 500,
     val reconnectMaxMs: Long = 30_000,
     val statsIntervalMs: Long = 2_000,
+    val sendQoe: Boolean = false,
+    val qoeIntervalMs: Long = 10_000,
     val now: () -> Long = { System.currentTimeMillis() },
     val random: () -> Double = { Math.random() },
     val onQoe: ((QoeSample) -> Unit)? = null
@@ -74,6 +76,12 @@ class CallSession(
 
     @Volatile
     private var qualityJob: Job? = null
+
+    @Volatile
+    private var qoeJob: Job? = null
+
+    @Volatile
+    private var qoeAggregator: QoeAggregator? = null
 
     @Volatile
     private var joinDeferred: CompletableDeferred<Unit>? = null
@@ -129,6 +137,7 @@ class CallSession(
     fun leave() {
         if (!active) return
         try {
+            flushQoe()
             signaling?.send(FrameCodec.encodeLeave())
             signaling?.close()
         } finally {
@@ -251,6 +260,7 @@ class CallSession(
         store.setStartedAt(frame.room.startedAt)
         if (frame.room.startedAt != null) startDuration()
         startQuality()
+        startQoe()
 
         store.setSocketReconnecting(false)
         store.setPhase(CallPhase.CONNECTED)
@@ -334,6 +344,22 @@ class CallSession(
         }
     }
 
+    private fun startQoe() {
+        if (!config.sendQoe || qoeJob != null) return
+        if (qoeAggregator == null) qoeAggregator = QoeAggregator(config.statsIntervalMs / 1000.0)
+        qoeJob = scope.launch {
+            while (true) {
+                delay(config.qoeIntervalMs)
+                flushQoe()
+            }
+        }
+    }
+
+    private fun flushQoe() {
+        val summary = qoeAggregator?.summary() ?: return
+        runCatching { signaling?.send(FrameCodec.encodeQoe(summary)) }
+    }
+
     suspend fun pollQuality() {
         val currentMesh = mesh ?: return
         for (peerId in currentMesh.ids()) {
@@ -362,6 +388,14 @@ class CallSession(
                     config.now()
                 )
             )
+            runCatching {
+                qoeAggregator?.observe(
+                    result.label,
+                    sample.rttMs,
+                    sample.fractionLost ?: 0.0,
+                    sample.jitterMs
+                )
+            }
         }
     }
 
@@ -402,6 +436,9 @@ class CallSession(
         durationJob = null
         qualityJob?.cancel()
         qualityJob = null
+        qoeJob?.cancel()
+        qoeJob = null
+        qoeAggregator = null
         runCatching { mesh?.teardown() }
         mesh = null
         synchronized(trackersLock) { trackers.clear() }

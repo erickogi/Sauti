@@ -2,6 +2,7 @@ package io.sauti.engine
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -20,7 +21,8 @@ private class QoeHarness(
 private fun buildQoeHarness(
     scope: CoroutineScope,
     startClock: Long = 1000L,
-    onQoe: ((QoeSample) -> Unit)?
+    sendQoe: Boolean = false,
+    onQoe: ((QoeSample) -> Unit)? = null
 ): QoeHarness {
     var nowValue = startClock
     val rtc = FakeRtcFactory()
@@ -34,6 +36,8 @@ private fun buildQoeHarness(
             now = { nowValue },
             random = { 0.0 },
             statsIntervalMs = 2_000,
+            sendQoe = sendQoe,
+            qoeIntervalMs = 10_000,
             onQoe = onQoe
         ),
         scope = scope
@@ -211,5 +215,55 @@ class CallSessionQoeTest {
         val expected = classifyQuality(StatsSample(rttMs = 800.0, loss = 0.3, jitterMs = 200.0))
         assertEquals(Quality.POOR, expected)
         assertEquals(expected, h.session.state.value.participants.first { it.participantId == "b" }.quality)
+    }
+
+    @Test
+    fun flushesQoeFrameBeforeLeaveWhenEnabled() = runTest {
+        val h = buildQoeHarness(backgroundScope, sendQoe = true)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.deliverReady("b")
+        runCurrent()
+        h.rtc.created.first().stats = StatsSample(rttMs = 120.0, loss = 0.0, jitterMs = 10.0, fractionLost = 0.01)
+        h.session.pollQuality()
+        runCurrent()
+
+        h.session.leave()
+        runCurrent()
+
+        assertTrue(h.hub.sentTypes().contains("qoe"))
+        assertTrue(h.hub.sentTypes().contains("leave"))
+    }
+
+    @Test
+    fun sendsQoeFrameOnIntervalWhenEnabled() = runTest {
+        val h = buildQoeHarness(backgroundScope, sendQoe = true)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.deliverReady("b")
+        runCurrent()
+        h.rtc.created.first().stats = StatsSample(rttMs = 120.0, loss = 0.0, jitterMs = 10.0, fractionLost = 0.01)
+
+        advanceTimeBy(10_000)
+        runCurrent()
+
+        assertTrue(h.hub.sentTypes().contains("qoe"))
+    }
+
+    @Test
+    fun sendsNoQoeFrameWhenDisabled() = runTest {
+        val h = buildQoeHarness(backgroundScope, sendQoe = false)
+        backgroundScope.launch { h.session.join(JoinConfig("wss://x", "t")) }
+        runCurrent()
+        h.deliverReady("b")
+        runCurrent()
+        h.rtc.created.first().stats = StatsSample(rttMs = 800.0, loss = 0.3, jitterMs = 200.0)
+        h.session.pollQuality()
+        advanceTimeBy(20_000)
+        runCurrent()
+        h.session.leave()
+        runCurrent()
+
+        assertTrue(h.hub.sentTypes().none { it == "qoe" })
     }
 }

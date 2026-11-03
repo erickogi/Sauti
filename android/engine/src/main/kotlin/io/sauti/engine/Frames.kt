@@ -55,6 +55,22 @@ object FrameCodec {
         put("type", "leave")
     }.toString()
 
+    fun encodeQoe(summary: QoeSummary): String = buildJsonObject {
+        put("v", PROTOCOL_VERSION)
+        put("type", "qoe")
+        put("samples", summary.samples)
+        put("avgRttMs", summary.avgRttMs)
+        put("maxRttMs", summary.maxRttMs)
+        put("avgJitterMs", summary.avgJitterMs)
+        put("maxJitterMs", summary.maxJitterMs)
+        put("avgLoss", summary.avgLoss)
+        put("maxLoss", summary.maxLoss)
+        put("secGood", summary.secGood)
+        put("secDegraded", summary.secDegraded)
+        put("secPoor", summary.secPoor)
+        put("worst", summary.worst.name.lowercase())
+    }.toString()
+
     fun encodeState(muted: Boolean?, onHold: Boolean?): String = buildJsonObject {
         put("v", PROTOCOL_VERSION)
         put("type", "state")
