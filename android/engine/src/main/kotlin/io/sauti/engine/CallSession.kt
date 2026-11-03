@@ -53,10 +53,16 @@ class CallSession(
     val eventFlow: SharedFlow<CallEvent> get() = events.asSharedFlow()
 
     private val trackers = LinkedHashMap<String, QualityTracker>()
+    private val trackersLock = Any()
 
+    @Volatile
     private var signaling: SignalingClient? = null
+
+    @Volatile
     private var mesh: Mesh? = null
     private var maxParticipants: Int = 3
+
+    @Volatile
     private var active = false
     private var localMuted = false
     private var localOnHold = false
@@ -156,7 +162,7 @@ class CallSession(
             is ServerFrame.ParticipantLeft -> {
                 mesh?.removePeer(frame.participantId)
                 store.removeParticipant(frame.participantId)
-                trackers.remove(frame.participantId)
+                synchronized(trackersLock) { trackers.remove(frame.participantId) }
                 emit(CallEvent.Left(frame.participantId))
                 maybeEndForLastPeer()
             }
@@ -225,7 +231,7 @@ class CallSession(
             for (id in currentMesh.ids()) {
                 currentMesh.removePeer(id)
                 store.removeParticipant(id)
-                trackers.remove(id)
+                synchronized(trackersLock) { trackers.remove(id) }
             }
             for (peer in frame.peers) {
                 seedPeer(peer, ConnectionState.CONNECTING)
@@ -250,14 +256,14 @@ class CallSession(
             if (id !in present) {
                 currentMesh.removePeer(id)
                 store.removeParticipant(id)
-                trackers.remove(id)
+                synchronized(trackersLock) { trackers.remove(id) }
             }
         }
         for (peer in frame.peers) {
             val existing = currentMesh.has(peer.participantId)
             seedPeer(peer, if (existing) ConnectionState.CONNECTED else ConnectionState.CONNECTING)
             if (existing) {
-                currentMesh.statsPeer(peer.participantId)?.iceRestart()
+                runCatching { currentMesh.statsPeer(peer.participantId)?.iceRestart() }
             } else {
                 currentMesh.addPeer(peer.participantId)
             }
@@ -327,7 +333,7 @@ class CallSession(
             } catch (error: Throwable) {
                 continue
             }
-            val tracker = trackers.getOrPut(peerId) { QualityTracker() }
+            val tracker = synchronized(trackersLock) { trackers.getOrPut(peerId) { QualityTracker() } }
             val result = tracker.observe(sample)
             val before = store.participant(peerId)?.quality
             store.setQuality(peerId, result.label)
@@ -376,13 +382,13 @@ class CallSession(
     }
 
     private fun teardown() {
-        mesh?.teardown()
-        mesh = null
         durationJob?.cancel()
         durationJob = null
         qualityJob?.cancel()
         qualityJob = null
-        trackers.clear()
+        runCatching { mesh?.teardown() }
+        mesh = null
+        synchronized(trackersLock) { trackers.clear() }
         signaling = null
         active = false
         localMuted = false

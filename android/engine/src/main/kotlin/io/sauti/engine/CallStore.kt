@@ -14,6 +14,7 @@ data class ParticipantSeed(
 )
 
 class CallStore(now: () -> Long) {
+    private val lock = Any()
     private val clock = DurationClock(now)
     private val participants = LinkedHashMap<String, ParticipantSnapshot>()
 
@@ -26,27 +27,27 @@ class CallStore(now: () -> Long) {
     private val flow = MutableStateFlow(build())
     val state: StateFlow<CallState> get() = flow.asStateFlow()
 
-    fun captureClockOffset(serverNow: Long) = clock.captureOffset(serverNow)
+    fun captureClockOffset(serverNow: Long) = synchronized(lock) { clock.captureOffset(serverNow) }
 
-    fun setStartedAt(value: Long?) {
+    fun setStartedAt(value: Long?) = synchronized(lock) {
         clock.setStartedAt(value)
         commit()
     }
 
-    fun startedAt(): Long? = clock.startedAt()
+    fun startedAt(): Long? = synchronized(lock) { clock.startedAt() }
 
-    fun setSelf(id: String) {
+    fun setSelf(id: String) = synchronized(lock) {
         selfId = id
     }
 
-    fun selfId(): String? = selfId
+    fun selfId(): String? = synchronized(lock) { selfId }
 
-    fun setPhase(value: CallPhase) {
+    fun setPhase(value: CallPhase) = synchronized(lock) {
         phase = value
         commit()
     }
 
-    fun upsertParticipant(seed: ParticipantSeed) {
+    fun upsertParticipant(seed: ParticipantSeed) = synchronized(lock) {
         val existing = participants[seed.participantId]
         participants[seed.participantId] = ParticipantSnapshot(
             participantId = seed.participantId,
@@ -59,12 +60,12 @@ class CallStore(now: () -> Long) {
         commit()
     }
 
-    fun removeParticipant(id: String) {
+    fun removeParticipant(id: String) = synchronized(lock) {
         if (participants.remove(id) != null) commit()
     }
 
-    fun mergeState(id: String, partial: PartialState) {
-        val current = participants[id] ?: return
+    fun mergeState(id: String, partial: PartialState) = synchronized(lock) {
+        val current = participants[id] ?: return@synchronized
         participants[id] = current.copy(
             muted = partial.muted ?: current.muted,
             onHold = partial.onHold ?: current.onHold
@@ -72,41 +73,41 @@ class CallStore(now: () -> Long) {
         commit()
     }
 
-    fun setConnectionState(id: String, connectionState: ConnectionState) {
-        val current = participants[id] ?: return
+    fun setConnectionState(id: String, connectionState: ConnectionState) = synchronized(lock) {
+        val current = participants[id] ?: return@synchronized
         participants[id] = current.copy(connectionState = connectionState)
         commit()
     }
 
-    fun setQuality(id: String, quality: Quality) {
-        val current = participants[id] ?: return
-        if (current.quality == quality) return
+    fun setQuality(id: String, quality: Quality) = synchronized(lock) {
+        val current = participants[id] ?: return@synchronized
+        if (current.quality == quality) return@synchronized
         participants[id] = current.copy(quality = quality)
         commit()
     }
 
-    fun participant(id: String): ParticipantSnapshot? = participants[id]
+    fun participant(id: String): ParticipantSnapshot? = synchronized(lock) { participants[id] }
 
-    fun setLocalMuted(muted: Boolean) {
+    fun setLocalMuted(muted: Boolean) = synchronized(lock) {
         localMuted = muted
         val self = selfId
         if (self != null) mergeState(self, PartialState(muted = muted)) else commit()
     }
 
-    fun setLocalOnHold(onHold: Boolean) {
+    fun setLocalOnHold(onHold: Boolean) = synchronized(lock) {
         localOnHold = onHold
         val self = selfId
         if (self != null) mergeState(self, PartialState(onHold = onHold)) else commit()
     }
 
-    fun setSocketReconnecting(value: Boolean) {
+    fun setSocketReconnecting(value: Boolean) = synchronized(lock) {
         socketReconnecting = value
         commit()
     }
 
-    fun tick() = commit()
+    fun tick() = synchronized(lock) { commit() }
 
-    fun reset() {
+    fun reset() = synchronized(lock) {
         participants.clear()
         selfId = null
         phase = CallPhase.LEFT

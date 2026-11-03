@@ -37,29 +37,68 @@ class Mesh(
 
     fun count(): Int = synchronized(lock) { peers.size }
 
-    fun ensurePeer(peerId: String): Peer = synchronized(lock) { peers[peerId] ?: createPeerLocked(peerId) }
-
-    private fun createPeerLocked(peerId: String): Peer {
-        val pc = factory.createPeerConnection(iceServers)
-        val peer = Peer(peerId, selfId, pc, scope, signal)
-        peers[peerId] = peer
-        return peer
+    fun ensurePeer(peerId: String): Peer {
+        synchronized(lock) { peers[peerId]?.let { return it } }
+        val fresh = createDetached(peerId)
+        var loser: Peer? = null
+        val result = synchronized(lock) {
+            val existing = peers[peerId]
+            if (existing != null) {
+                loser = fresh
+                existing
+            } else {
+                peers[peerId] = fresh
+                fresh
+            }
+        }
+        loser?.close()
+        return result
     }
 
     fun addPeer(peerId: String): Peer {
-        val peer = synchronized(lock) { createPeerLocked(peerId) }
-        peer.start()
-        return peer
+        val fresh = createDetached(peerId)
+        var loser: Peer? = null
+        var created = false
+        val result = synchronized(lock) {
+            val existing = peers[peerId]
+            if (existing != null) {
+                loser = fresh
+                existing
+            } else {
+                peers[peerId] = fresh
+                created = true
+                fresh
+            }
+        }
+        loser?.close()
+        if (created) result.start()
+        return result
+    }
+
+    private fun createDetached(peerId: String): Peer {
+        val servers = synchronized(lock) { iceServers }
+        return Peer(peerId, selfId, factory.createPeerConnection(servers), scope, signal)
     }
 
     private fun rebuild(peerId: String) {
-        val pair = synchronized(lock) {
-            val old = peers[peerId] ?: return
-            peers.remove(peerId)
-            old to createPeerLocked(peerId)
+        val servers = synchronized(lock) {
+            if (!peers.containsKey(peerId)) return
+            iceServers
         }
-        pair.first.close()
-        pair.second.start()
+        val fresh = Peer(peerId, selfId, factory.createPeerConnection(servers), scope, signal)
+        var old: Peer? = null
+        val installed = synchronized(lock) {
+            val existing = peers[peerId]
+            if (existing != null) {
+                old = existing
+                peers[peerId] = fresh
+                true
+            } else {
+                false
+            }
+        }
+        old?.close()
+        if (installed) fresh.start() else fresh.close()
     }
 
     fun removePeer(peerId: String) {
@@ -83,7 +122,7 @@ class Mesh(
 
     fun iceRestartAll() {
         val snapshot = synchronized(lock) { peers.values.toList() }
-        for (peer in snapshot) peer.iceRestart()
+        for (peer in snapshot) runCatching { peer.iceRestart() }
     }
 
     fun statsPeer(peerId: String): Peer? = synchronized(lock) { peers[peerId] }
@@ -94,6 +133,6 @@ class Mesh(
             peers.clear()
             all
         }
-        for (peer in snapshot) peer.close()
+        for (peer in snapshot) runCatching { peer.close() }
     }
 }

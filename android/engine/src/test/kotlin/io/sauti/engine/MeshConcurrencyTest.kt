@@ -35,7 +35,7 @@ class MeshConcurrencyTest {
         Mesh(CoroutineScope(Dispatchers.Unconfined), factory, "self", hooks)
 
     @Test
-    fun concurrentEnsurePeerForOneIdCreatesExactlyOnePeerConnection() {
+    fun concurrentEnsurePeerForOneIdLeavesExactlyOneLivePeerConnection() {
         val factory = GatedRtcFactory()
         val mesh = mesh(factory)
         val start = CyclicBarrier(2)
@@ -45,8 +45,9 @@ class MeshConcurrencyTest {
         a.join()
         b.join()
 
-        assertEquals(1, factory.created.size, "ensurePeer raced into a second, leaked PeerConnection")
         assertTrue(mesh.has("x"))
+        val live = factory.created.filter { it.closeCount == 0 }
+        assertEquals(1, live.size, "exactly one live PeerConnection must remain; losers must be closed")
     }
 
     @Test
